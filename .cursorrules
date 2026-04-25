@@ -1,0 +1,103 @@
+# Spotcoin Cursor Rules
+# Keep instructions flat and explicit for reliable parsing.
+
+# Project intent
+- Build Spotcoin as a monorepo with:
+  - `apps/web` (Next.js app router, employee + admin UI)
+  - `apps/slack-bot` (Slack Bolt integration)
+  - `server` (Express API + jobs)
+  - `packages/db` (Prisma schema + client)
+  - `packages/types` (shared API/domain types)
+  - `packages/api-client` (typed HTTP client)
+
+# Core business semantics (do not reinterpret)
+- `coinsToGive` means monthly spendable recognition budget for sending.
+- `spotTokensEarned` means cumulative received value tracked for year-end payout.
+- Monthly reset ONLY refills `coinsToGive`.
+- Monthly reset MUST NEVER reduce, reset, or mutate `spotTokensEarned`.
+- Recognition send does:
+  - sender `coinsToGive -= coinAmount`
+  - recipient `spotTokensEarned += coinAmount`
+  - write `Recognition`
+  - write sender and recipient `CoinTransaction` rows.
+- Payout completion does:
+  - create `PAYOUT` transaction with negative amount equal to earned tokens
+  - set user `spotTokensEarned = 0`
+  - set user `payoutStatus = COMPLETED`.
+
+# Terminology and naming consistency
+- Use US spelling everywhere: "recognize", "recognizing", "recognized".
+- UI copy label standard: "Spot Tokens" (not "Spot-tokens").
+- Keep domain field names exactly as schema defines (`coinsToGive`, `spotTokensEarned`).
+
+# Data and schema guardrails
+- Prisma is source of truth for data model.
+- Keep enum names and values stable once introduced.
+- Add indexes for all `workspaceId` fields.
+- Use soft-deactivation (`deletedAt`) for users, not hard deletes.
+- All cross-user mutations must validate same `workspaceId`.
+
+# API contract rules
+- Use consistent response shape:
+  - success: `{ data, meta? }`
+  - error: `{ error, code, details? }`
+- Validate all request inputs with Zod before domain logic.
+- Never leak raw internal errors, Prisma details, secrets, or stack traces to clients.
+- Throw typed application/domain errors for business rule violations.
+- Wrap multi-step writes in `prisma.$transaction()`.
+
+# Auth and authorization
+- All non-public endpoints require auth.
+- Admin endpoints require explicit admin check.
+- JWT/session claims must include: `id`, `email`, `role`, `workspaceId`.
+- Never trust client-provided role/workspace identifiers without server verification.
+
+# Slack integration rules
+- Store Slack bot tokens encrypted at rest.
+- Decrypt Slack bot token only at point of use.
+- Resolve Slack team/user to DB workspace/user before any recognition action.
+- `ack()` Slack commands/actions immediately.
+- Use pure message-builder utilities for Block Kit payloads (no inline ad-hoc blocks).
+- Notification failures must be logged but must not roll back core recognition DB writes.
+
+# Jobs and scheduling
+- Monthly refill job runs 00:01 on day 1 in `Africa/Lagos`.
+- Recognition Monday job runs 09:00 Mondays in `Africa/Lagos`.
+- One failing workspace must not stop other workspace job processing.
+- All jobs must have structured logs for start, completion, counts, and failures.
+
+# Security and privacy
+- Validate environment variables at startup and fail fast.
+- Encrypt secrets with AES-256-GCM using `ENCRYPTION_KEY`.
+- Sanitize user-provided recognition message content before persistence.
+- Apply least privilege to routes and admin actions.
+- Add rate limits on abuse-prone routes.
+
+# Frontend UX requirements
+- Employee dashboard must support:
+  - feed
+  - wallet balances + transaction history
+  - send recognition flow with balance-aware validation.
+- Admin dashboard must support:
+  - user management
+  - workspace settings
+  - analytics
+  - payout operations.
+- Keep forms resilient with clear error and loading states.
+
+# Testing standards
+- Unit tests for service-layer business logic are required.
+- Mock Prisma in unit tests (no live DB).
+- Add Playwright e2e for critical paths:
+  - send recognition
+  - invite user
+  - payout complete.
+- Any bug fix touching business logic should include or update tests.
+
+# Absolute prohibitions
+- Do not mutate `spotTokensEarned` in monthly reset flow.
+- Do not perform recognition writes outside a transaction.
+- Do not post or expose decrypted Slack tokens.
+- Do not send raw internal error messages to users.
+- Do not skip workspace boundary checks for reads/writes.
+- Do not bypass authentication/authorization middleware.

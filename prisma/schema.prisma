@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+}
+
+enum CoinTransactionType {
+  ALLOWANCE_GRANT
+  RECOGNITION_SENT
+  RECOGNITION_RECEIVED
+  BONUS_GRANT
+  PAYOUT
+}
+
+enum PayoutWindowStatus {
+  OPEN
+  CLOSED
+}
+
+model Workspace {
+  id                  String   @id @default(cuid())
+  name                String
+  monthlyAllowance    Int      @default(5)
+  tokenValueNaira     Int      @default(1000)
+  slackTeamId         String?  @unique
+  slackBotToken       String?
+  targetChannelId     String?
+  recognitionSchedule String   @default("EVERY_MONDAY")
+  timezone            String   @default("Africa/Lagos")
+  onboardingComplete  Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  users               User[]
+  values              CompanyValue[]
+  recognitions        Recognition[]
+  payoutWindows       PayoutWindow[]
+}
+
+model User {
+  id                   String            @id @default(cuid())
+  email                String            @unique
+  name                 String
+  passwordHash         String
+  avatarUrl            String?
+  role                 Role              @default(EMPLOYEE)
+  workspaceId          String
+  workspace            Workspace         @relation(fields: [workspaceId], references: [id])
+  slackUserId          String?
+  coinsToGive          Int               @default(5)
+  spotTokensEarned     Int               @default(0)
+  payoutStatus         PayoutStatus      @default(PENDING)
+  lastActiveAt         DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime          @default(now())
+  sentRecognitions     Recognition[]     @relation("SentRecognitions")
+  receivedRecognitions Recognition[]     @relation("ReceivedRecognitions")
+  coinTransactions     CoinTransaction[]
+  openedPayoutWindows  PayoutWindow[]    @relation("PayoutWindowOpenedBy")
+
+  @@index([workspaceId])
+}
+
+model CompanyValue {
+  id           String        @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id])
+  name         String
+  emoji        String
+  isActive     Boolean       @default(true)
+  recognitions Recognition[]
+
+  @@index([workspaceId])
+}
+
+model Recognition {
+  id          String       @id @default(cuid())
+  senderId    String
+  sender      User         @relation("SentRecognitions", fields: [senderId], references: [id])
+  recipientId String
+  recipient   User         @relation("ReceivedRecognitions", fields: [recipientId], references: [id])
+  workspaceId String
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id])
+  valueId     String
+  value       CompanyValue @relation(fields: [valueId], references: [id])
+  message     String
+  coinAmount  Int
+  slackTs     String?
+  createdAt   DateTime     @default(now())
+
+  @@index([workspaceId])
+  @@index([senderId])
+  @@index([recipientId])
+}
+
+model CoinTransaction {
+  id          String              @id @default(cuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id])
+  workspaceId String
+  type        CoinTransactionType
+  amount      Int
+  referenceId String?
+  createdAt   DateTime            @default(now())
+
+  @@index([userId])
+  @@index([workspaceId])
+}
+
+model SlackInstallation {
+  id            String   @id @default(cuid())
+  workspaceId   String   @unique
+  slackTeamId   String   @unique
+  botToken      String
+  botUserId     String
+  installedById String
+  createdAt     DateTime @default(now())
+}
+
+model PayoutWindow {
+  id         String             @id @default(cuid())
+  workspaceId String             @unique
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id])
+  openedById String
+  openedBy   User               @relation("PayoutWindowOpenedBy", fields: [openedById], references: [id])
+  openedAt   DateTime           @default(now())
+  status     PayoutWindowStatus @default(OPEN)
+
+  @@index([workspaceId])
+}
