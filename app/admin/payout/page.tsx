@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { Banknote, CheckCircle2, Download } from "lucide-react";
+import { AppToast } from "@/components/ui/toast";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 type LedgerEntry = {
   id: string;
@@ -24,8 +31,6 @@ type LedgerData = {
   };
 };
 
-type ToastState = { message: string; type: "success" | "error" } | null;
-
 function naira(value: number) {
   return `₦${value.toLocaleString("en-NG")}`;
 }
@@ -36,12 +41,7 @@ export default function AdminPayoutPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmUser, setConfirmUser] = useState<LedgerEntry | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
-
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const { toast, showToast } = useToast();
 
   const loadLedger = async () => {
     setIsLoading(true);
@@ -121,18 +121,13 @@ export default function AdminPayoutPage() {
 
   if (isLoading || !data) {
     return (
-      <section className="px-5 pb-8">
-        <header className="flex items-center gap-3 py-4">
-          <Link href="/admin" aria-label="Back to admin">
-            <ChevronLeft size={20} className="text-[--text-primary]" />
-          </Link>
-          <h1 className="text-lg font-semibold text-[--text-primary]">Year-End Payout</h1>
-        </header>
+      <section className="pb-10">
+        <PageHeader title="Year-End Payout" backHref="/admin" />
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="animate-pulse rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-              <div className="h-4 w-40 rounded bg-[--bg-card-2]" />
-              <div className="mt-2 h-3 w-24 rounded bg-[--bg-card-2]" />
+            <div key={index} className="rounded-[16px] border border-border bg-card p-4">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="mt-2 h-3 w-24" />
             </div>
           ))}
         </div>
@@ -141,174 +136,178 @@ export default function AdminPayoutPage() {
   }
 
   const hasOpenWindow = data.payoutWindow?.status === "OPEN";
+  const progressPct =
+    data.summary.totalEmployees > 0
+      ? Math.round((completedCount / data.summary.totalEmployees) * 100)
+      : 0;
 
   return (
-    <section className="px-5 pb-8">
-      <header className="flex items-center gap-3 py-4">
-        <Link href="/admin" aria-label="Back to admin">
-          <ChevronLeft size={20} className="text-[--text-primary]" />
-        </Link>
-        <h1 className="text-lg font-semibold text-[--text-primary]">Year-End Payout</h1>
-      </header>
+    <section className="pb-10">
+      <PageHeader title="Year-End Payout" backHref="/admin" description="Run payout for the year" />
 
       {!hasOpenWindow ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-            <p className="text-[10px] uppercase tracking-[0.08em] text-[--text-secondary]">
-              Total Spot Tokens across team
+          <div className="rounded-[20px] border border-border bg-card p-5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+              Total Spot Tokens
             </p>
-            <p className="mt-1 font-mono text-4xl font-bold text-[--text-primary]">
+            <p className="mt-2 font-mono text-[40px] font-bold leading-none tracking-tight text-foreground">
               {data.summary.totalSpotTokens}
             </p>
-            <p className="mt-2 text-sm text-[--accent]">
-              Total projected payout: {naira(data.summary.totalNaira)}
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+              <Banknote size={12} />
+              Projected payout: {naira(data.summary.totalNaira)}
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[--border-mid] bg-[--bg-card] p-4">
-            <p className="text-sm text-[--text-secondary]">
-              Opening the payout window notifies your team and generates the Finance CSV.
-              This action cannot be undone.
+          <div className="rounded-[16px] border border-warning/30 bg-warning/5 p-4">
+            <p className="text-sm font-semibold text-foreground">Heads up</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Opening the payout window notifies your team and generates the Finance CSV. This action
+              cannot be undone.
             </p>
           </div>
 
-          <button
-            onClick={() => setConfirmOpen(true)}
-            className="w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base]"
-          >
-            Open Payout Window
-          </button>
+          <Button onClick={() => setConfirmOpen(true)} className="w-full">
+            Open payout window
+          </Button>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-            <p className="text-sm text-[--text-secondary]">
-              {completedCount} of {data.summary.totalEmployees} employees paid out
+        <div className="space-y-5">
+          <div className="rounded-[20px] border border-border bg-card p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+                Progress
+              </p>
+              <span className="font-mono text-xs text-muted">
+                {completedCount} / {data.summary.totalEmployees}
+              </span>
+            </div>
+            <p className="mt-2 font-mono text-3xl font-bold leading-none text-foreground">
+              {progressPct}%
             </p>
-            <div className="mt-2 h-2 rounded-full bg-[--bg-card-2]">
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-card-2">
               <div
-                className="h-2 rounded-full bg-[--accent]"
-                style={{
-                  width: `${data.summary.totalEmployees > 0 ? (completedCount / data.summary.totalEmployees) * 100 : 0}%`,
-                }}
+                className="h-full rounded-full bg-accent transition-[width]"
+                style={{ width: `${progressPct}%` }}
               />
             </div>
-            <button
+            <Button
               onClick={() => void handleExportCSV()}
-              className="mt-3 rounded-full border border-[--border-mid] px-4 py-2 text-sm text-[--text-primary]"
+              className="mt-4"
+              variant="outline"
+              size="sm"
             >
+              <Download size={14} />
               Export CSV
-            </button>
+            </Button>
           </div>
 
           {data.entries.length === 0 ? (
-            <div className="rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-8 text-center text-sm text-[--accent]">
-              Payout complete 🎉
+            <div className="rounded-[20px] border border-accent/30 bg-accent/10 p-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-accent/30 bg-accent/15">
+                <CheckCircle2 size={20} className="text-accent" />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-foreground">Payout complete</p>
+              <p className="mt-1 text-xs text-muted">All employees have been paid out.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <ul className="space-y-2">
               {data.entries.map((entry) => (
-                <div
+                <li
                   key={entry.id}
-                  className="flex items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5"
+                  className="flex items-center gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5"
                 >
-                  <div>
-                    <p className="text-sm text-[--text-primary]">{entry.name}</p>
-                    <p className="text-xs text-[--text-secondary]">{entry.email}</p>
+                  <Avatar name={entry.name} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{entry.name}</p>
+                    <p className="truncate text-[11px] text-muted">{entry.email}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-mono text-sm font-semibold text-[--text-primary]">
+                  <div className="flex flex-col items-end gap-1.5">
+                    <p className="font-mono text-sm font-semibold text-foreground">
                       {naira(entry.nairaValue)}
                     </p>
-                    <span
-                      className={`mt-1 inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${
-                        entry.payoutStatus === "COMPLETED"
-                          ? "border-[--accent-border] bg-[--accent-bg] text-[--accent]"
-                          : "border-[--border] bg-[--bg-card-2] text-[--text-secondary]"
-                      }`}
-                    >
-                      {entry.payoutStatus === "COMPLETED" ? "paid" : "pending"}
-                    </span>
-                    {entry.payoutStatus === "PENDING" ? (
-                      <button
+                    {entry.payoutStatus === "COMPLETED" ? (
+                      <Badge variant="accent">Paid</Badge>
+                    ) : (
+                      <Button
                         onClick={() => setConfirmUser(entry)}
-                        className="mt-2 block w-full rounded-full border border-[--border-mid] px-3 py-1.5 text-xs text-[--text-primary]"
+                        variant="outline"
+                        size="sm"
                       >
                         Mark paid
-                      </button>
-                    ) : null}
+                      </Button>
+                    )}
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
       )}
 
-      {(confirmOpen || confirmUser) && (
-        <div className="fixed inset-0 z-40 bg-black/60">
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl border border-[--border] bg-[--bg-overlay] p-5">
-            {confirmOpen ? (
-              <div>
-                <h2 className="text-base font-semibold text-[--text-primary]">Open payout window?</h2>
-                <p className="mt-2 text-sm text-[--text-secondary]">
+      <Sheet
+        open={confirmOpen || !!confirmUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmOpen(false);
+            setConfirmUser(null);
+          }
+        }}
+      >
+        <SheetContent>
+          {confirmOpen ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Open payout window?</SheetTitle>
+                <SheetDescription>
                   This will allow Finance to process {naira(data.summary.totalNaira)} across{" "}
-                  {data.summary.totalEmployees} employees.
-                </p>
-                <button
-                  onClick={() => void handleOpenWindow()}
-                  disabled={isSaving}
-                  className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-                >
-                  {isSaving ? "Opening..." : "Confirm"}
-                </button>
-                <button
-                  onClick={() => setConfirmOpen(false)}
-                  className="mt-2 w-full rounded-full border border-[--border-mid] px-5 py-2.5 text-sm text-[--text-primary]"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : null}
+                  {data.summary.totalEmployees}{" "}
+                  {data.summary.totalEmployees === 1 ? "employee" : "employees"}.
+                </SheetDescription>
+              </SheetHeader>
+              <Button onClick={() => void handleOpenWindow()} disabled={isSaving} className="w-full">
+                {isSaving ? "Opening..." : "Confirm"}
+              </Button>
+              <Button
+                onClick={() => setConfirmOpen(false)}
+                className="w-full"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : null}
 
-            {confirmUser ? (
-              <div>
-                <h2 className="text-base font-semibold text-[--text-primary]">Confirm payout?</h2>
-                <p className="mt-2 text-sm text-[--text-secondary]">
-                  Confirm {naira(confirmUser.nairaValue)} payment to {confirmUser.name}?
-                </p>
-                <button
-                  onClick={() => void handleMarkComplete()}
-                  disabled={isSaving}
-                  className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-                >
-                  {isSaving ? "Processing..." : "Confirm"}
-                </button>
-                <button
-                  onClick={() => setConfirmUser(null)}
-                  className="mt-2 w-full rounded-full border border-[--border-mid] px-5 py-2.5 text-sm text-[--text-primary]"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
+          {confirmUser ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Confirm payout?</SheetTitle>
+                <SheetDescription>
+                  Confirm {naira(confirmUser.nairaValue)} payment to {confirmUser.name}? This will
+                  zero out their Spot Tokens.
+                </SheetDescription>
+              </SheetHeader>
+              <Button
+                onClick={() => void handleMarkComplete()}
+                disabled={isSaving}
+                className="w-full"
+              >
+                {isSaving ? "Processing..." : "Confirm"}
+              </Button>
+              <Button
+                onClick={() => setConfirmUser(null)}
+                className="w-full"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
-      {toast ? (
-        <div className="fixed bottom-20 left-1/2 z-50 w-[calc(100%-40px)] max-w-lg -translate-x-1/2">
-          <div
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[--accent-border] bg-[--bg-overlay] text-[--text-primary]"
-                : "border-[--error] bg-[--bg-overlay] text-[--text-primary]"
-            }`}
-          >
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
+      <AppToast toast={toast} />
     </section>
   );
 }

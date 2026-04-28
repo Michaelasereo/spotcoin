@@ -1,8 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Activity, BarChart2, Heart, Wallet } from "lucide-react";
+import { Activity, ArrowRight, BarChart2, Heart, Sparkles, Wallet } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 function formatHeroDate(date: Date) {
   const day = date.getDate();
@@ -73,89 +76,130 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <section className="px-5 pb-8">
-      <div className="flex items-center justify-center border-b border-[--border] px-5 py-4">
-        <span className="text-sm font-medium text-[--text-primary]">Spotcoin</span>
-      </div>
-
-      <div className="mt-6">
-        <p className="text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">
-          LAGOS · {formatHeroDate(today)}
-        </p>
-        <h1 className="mt-2 text-[34px] font-bold leading-tight text-[--text-primary]">
-          Hey {firstName}.
-        </h1>
-        <p className="text-[34px] font-bold leading-tight text-[--text-secondary]">
-          Recognise. Reward. Repeat.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {user.coinsToGive > 0 ? (
-            <span className="rounded-full border border-[--accent-border] bg-[--accent-bg] px-2.5 py-1 text-xs font-medium text-[--accent]">
-              🪙 {user.coinsToGive} coins to give
-            </span>
-          ) : null}
-          <span className="rounded-full border border-[--accent-border] bg-[--accent-bg] px-2.5 py-1 text-xs font-medium text-[--accent]">
-            {monthName} active
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-        <p className="mb-3 text-xs text-[--text-secondary]">{user.workspace.name}</p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.08em] text-[--text-secondary]">
-              Coins to Give
-            </p>
-            <p className="mt-1 font-mono text-4xl font-bold text-[--text-primary]">
-              {user.coinsToGive}
-            </p>
-            <p className="mt-1 text-xs text-[--text-tertiary]">resets 1st of month</p>
-          </div>
-
-          <div className="border-l border-[--border] pl-4">
-            <p className="text-[10px] uppercase tracking-[0.08em] text-[--text-secondary]">
-              Spot Tokens
-            </p>
-            <p className="mt-1 font-mono text-4xl font-bold text-[--text-primary]">
-              {user.spotTokensEarned}
-            </p>
-            <p className="mt-1 text-xs text-[--accent]">
-              ≈ {formatNaira(projectedValue)} at year-end
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        {featureCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Link
-              key={card.href}
-              href={card.href}
-              className="flex w-full flex-col gap-8 rounded-2xl border border-[--border] bg-[--bg-card] p-4 text-left transition-opacity active:opacity-70"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[--bg-card-2]">
-                <Icon size={18} className="text-[--text-secondary]" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[--text-primary]">{card.title}</p>
-                <p className="mt-0.5 text-xs text-[--text-secondary]">{card.subtitle}</p>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-
-      {user.coinsToGive === 0 ? (
-        <div className="mt-4 rounded-2xl border border-[--border-mid] bg-[--bg-card] p-4">
-          <p className="text-sm font-semibold text-[--text-primary]">Your coins are currently empty</p>
-          <p className="mt-1 text-sm text-[--text-secondary]">
-            Your coins refill on the 1st. Check back soon.
+    <section className="pb-10 pt-2">
+      <div className="space-y-6">
+        <header className="space-y-3">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">
+            LAGOS · {formatHeroDate(today)}
           </p>
+          <div>
+            <h1 className="text-[32px] font-bold leading-[1.05] tracking-[-0.6px] text-foreground">
+              Hey {firstName}.
+            </h1>
+            <p className="text-[32px] font-bold leading-[1.05] tracking-[-0.6px] text-muted">
+              Build. Ship. Connect.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {user.coinsToGive > 0 ? (
+              <Badge variant="accent">
+                <Image src="/logomark.png" alt="Spotcoin" width={11} height={11} />
+                {user.coinsToGive} coins to give
+              </Badge>
+            ) : (
+              <Badge>
+                <span className="h-1.5 w-1.5 rounded-full bg-muted" />
+                No coins this month
+              </Badge>
+            )}
+            <Badge>
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              {monthName} active
+            </Badge>
+          </div>
+        </header>
+
+        <article className="rounded-[20px] border border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-[10px] border border-border bg-card-2">
+                <Image src="/logomark.png" alt="Spotcoin" width={14} height={14} />
+              </div>
+              <div className="leading-tight">
+                <p className="text-sm font-semibold text-foreground">{user.workspace.name}</p>
+                <p className="text-[11px] text-muted">Token wallet snapshot</p>
+              </div>
+            </div>
+            <Badge>
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+              Live
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-border">
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+                Coins to Give
+              </p>
+              <p className="mt-1.5 font-mono text-[32px] font-bold leading-none text-foreground">
+                {user.coinsToGive}
+              </p>
+              <p className="mt-1.5 text-[11px] text-muted">Resets monthly</p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+                Spot Tokens
+              </p>
+              <p className="mt-1.5 font-mono text-[32px] font-bold leading-none text-foreground">
+                {user.spotTokensEarned}
+              </p>
+              <p className="mt-1.5 text-[11px] text-muted">≈ {formatNaira(projectedValue)}</p>
+            </div>
+          </div>
+        </article>
+
+        <Link
+          href="/dashboard/recognise"
+          className="group flex items-center gap-3 rounded-[16px] border border-border bg-card p-4 transition-colors hover:border-border-strong hover:bg-card-2"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] border border-border bg-card-2">
+            <Sparkles size={16} className="text-foreground" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground">Reward unlock hint</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted">
+              Reach your monthly streak to unlock bonus distribution.
+            </p>
+          </div>
+          <ArrowRight size={16} className="shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+        </Link>
+
+        <div className="grid grid-cols-2 gap-3">
+          {featureCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.href}
+                href={card.href}
+                className="group flex min-h-[124px] flex-col justify-between rounded-[16px] border border-border bg-card p-4 transition-colors hover:border-border-strong hover:bg-card-2"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-card-2">
+                  <Icon size={15} className="text-foreground" />
+                </div>
+                <div>
+                  <p className="text-base font-semibold leading-tight text-foreground">{card.title}</p>
+                  <p className="mt-1 text-[11px] text-muted">{card.subtitle}</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
-      ) : null}
+
+        <Button asChild className="w-full">
+          <Link href="/dashboard/recognise">
+            Send a Spotcoin
+            <ArrowRight size={14} />
+          </Link>
+        </Button>
+
+        {user.coinsToGive === 0 ? (
+          <div className="rounded-[16px] border border-border bg-card p-4">
+            <p className="text-sm font-semibold text-foreground">Your coins are currently empty</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Your coins refill on the 1st. Check back soon.
+            </p>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

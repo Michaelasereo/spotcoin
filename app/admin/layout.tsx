@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { BottomNav } from "@/components/BottomNav";
+import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 
 export default async function AdminLayout({
@@ -36,9 +36,6 @@ export default async function AdminLayout({
   }
 
   return (
-    <main className="min-h-screen bg-[--bg-base] pb-24">
-      <div className="mx-auto w-full max-w-lg">{children}</div>
-      <BottomNav isAdmin />
-    </main>
+    <AppShell isAdmin>{children}</AppShell>
   );
 }

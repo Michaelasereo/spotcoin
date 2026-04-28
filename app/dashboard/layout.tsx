@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { BottomNav } from "@/components/BottomNav";
+import { AppShell } from "@/components/AppShell";
 
 export default async function DashboardLayout({
   children,
@@ -14,9 +14,6 @@ export default async function DashboardLayout({
   }
 
   return (
-    <main className="min-h-screen bg-[--bg-base] pb-24">
-      <div className="mx-auto w-full max-w-lg">{children}</div>
-      <BottomNav isAdmin={session.user.role === "ADMIN"} />
-    </main>
+    <AppShell isAdmin={session.user.role === "ADMIN"}>{children}</AppShell>
   );
 }

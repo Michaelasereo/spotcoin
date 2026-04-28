@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MoreHorizontal, UserPlus, X } from "lucide-react";
+import { MoreHorizontal, UserPlus, Users } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dropdown, DropdownContent, DropdownItem, DropdownTrigger } from "@/components/ui/dropdown";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AppToast } from "@/components/ui/toast";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useToast } from "@/hooks/use-toast";
 
 type Role = "EMPLOYEE" | "MANAGER" | "ADMIN";
 
@@ -17,11 +27,6 @@ type AdminUser = {
   deletedAt: string | null;
 };
 
-type ToastState = {
-  message: string;
-  type: "success" | "error";
-} | null;
-
 function formatLastActive(dateValue: string | null) {
   if (!dateValue) return "Never";
   return new Date(dateValue).toLocaleDateString("en-US", {
@@ -31,16 +36,15 @@ function formatLastActive(dateValue: string | null) {
   });
 }
 
-function initialsFromName(name: string) {
-  const parts = name.trim().split(/\s+/);
-  const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
-  return initials || "U";
-}
+const roleVariant: Record<Role, "neutral" | "accent" | "outline"> = {
+  ADMIN: "accent",
+  MANAGER: "outline",
+  EMPLOYEE: "neutral",
+};
 
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -54,14 +58,10 @@ export default function AdminPage() {
 
   const [deactivateUser, setDeactivateUser] = useState<AdminUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [toast, setToast] = useState<ToastState>(null);
+  const { toast, showToast } = useToast();
 
   const memberCount = useMemo(() => users.filter((user) => !user.deletedAt).length, [users]);
-
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const adminCount = useMemo(() => users.filter((user) => user.role === "ADMIN").length, [users]);
 
   const loadUsers = async () => {
     setIsLoading(true);
@@ -171,237 +171,224 @@ export default function AdminPage() {
     }
   };
 
-  return (
-    <section className="px-5 pb-8">
-      <header className="py-4">
-        <h1 className="text-lg font-semibold text-[--text-primary]">Team</h1>
-      </header>
+  const closeAllModals = () => {
+    setShowInviteModal(false);
+    setBonusUser(null);
+    setRoleUser(null);
+    setDeactivateUser(null);
+  };
 
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-[--text-secondary]">{memberCount} members</p>
-        <button
-          type="button"
-          onClick={() => setShowInviteModal(true)}
-          className="inline-flex items-center gap-2 rounded-full border border-[--border-mid] px-4 py-2 text-sm font-medium text-[--text-primary] transition-opacity active:opacity-70"
-        >
-          <UserPlus size={16} />
+  return (
+    <section className="pb-10">
+      <header className="flex items-start justify-between gap-3 py-5">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">Workspace</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Team</h1>
+          <p className="mt-1 text-xs text-muted">
+            {memberCount} {memberCount === 1 ? "member" : "members"}
+            {adminCount > 0 ? ` · ${adminCount} admin${adminCount === 1 ? "" : "s"}` : ""}
+          </p>
+        </div>
+        <Button type="button" onClick={() => setShowInviteModal(true)} variant="outline" size="sm">
+          <UserPlus size={14} />
           Invite
-        </button>
-      </div>
+        </Button>
+      </header>
 
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="animate-pulse rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-              <div className="h-4 w-40 rounded bg-[--bg-card-2]" />
-              <div className="mt-2 h-3 w-28 rounded bg-[--bg-card-2]" />
+            <div
+              key={index}
+              className="rounded-[16px] border border-border bg-card p-4"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+                <Skeleton className="h-5 w-14 rounded-full" />
+              </div>
             </div>
           ))}
         </div>
+      ) : users.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No teammates yet."
+          description="Invite your first teammate to start sending recognition."
+          action={
+            <Button onClick={() => setShowInviteModal(true)} variant="outline" size="sm">
+              <UserPlus size={14} />
+              Invite
+            </Button>
+          }
+        />
       ) : (
-        <div className="space-y-2">
+        <ul className="space-y-2">
           {users.map((user) => (
-            <div
+            <li
               key={user.id}
-              className="relative rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5"
+              className="flex items-center gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[--bg-card-2] text-xs font-semibold text-[--text-secondary]">
-                    {initialsFromName(user.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[--text-primary]">{user.name}</p>
-                    <p className="truncate text-xs text-[--text-secondary]">{user.email}</p>
-                    <p className="mt-0.5 text-[10px] text-[--text-tertiary]">
-                      Last active: {formatLastActive(user.lastActiveAt)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-[--border] bg-[--bg-card-2] px-2.5 py-1 text-xs font-medium text-[--text-secondary]">
-                    {user.role}
-                  </span>
+              <Avatar name={user.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {user.name}
+                  {user.deletedAt ? (
+                    <span className="ml-2 text-[10px] uppercase tracking-[0.12em] text-muted">
+                      Deactivated
+                    </span>
+                  ) : null}
+                </p>
+                <p className="truncate text-xs text-muted">
+                  {user.email} · Last active {formatLastActive(user.lastActiveAt)}
+                </p>
+              </div>
+              <Badge variant={roleVariant[user.role]} className="hidden sm:inline-flex">
+                {user.role}
+              </Badge>
+              <Dropdown>
+                <DropdownTrigger asChild>
                   <button
                     type="button"
-                    onClick={() =>
-                      setActiveMenuId((current) => (current === user.id ? null : user.id))
-                    }
-                    className="rounded-full p-2 text-[--text-secondary] transition-opacity active:opacity-70"
-                    aria-label={`Open actions for ${user.name}`}
+                    aria-label={`Actions for ${user.name}`}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card-2 text-muted transition-colors hover:border-border-strong hover:text-foreground"
                   >
                     <MoreHorizontal size={16} />
                   </button>
-                </div>
-              </div>
-
-              {activeMenuId === user.id ? (
-                <div className="absolute right-3 top-12 z-10 w-44 rounded-2xl border border-[--border] bg-[--bg-overlay] p-1 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBonusUser(user);
-                      setActiveMenuId(null);
-                    }}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[--text-primary] hover:bg-[--bg-card-2]"
-                  >
-                    Grant bonus coins
-                  </button>
-                  <button
-                    type="button"
+                </DropdownTrigger>
+                <DropdownContent align="end">
+                  <DropdownItem onClick={() => setBonusUser(user)}>Grant bonus coins</DropdownItem>
+                  <DropdownItem
                     onClick={() => {
                       setRoleUser(user);
                       setRoleValue(user.role);
-                      setActiveMenuId(null);
                     }}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[--text-primary] hover:bg-[--bg-card-2]"
                   >
                     Change role
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDeactivateUser(user);
-                      setActiveMenuId(null);
-                    }}
-                    className="w-full rounded-xl px-3 py-2 text-left text-sm text-[--error] hover:bg-[--bg-card-2]"
+                  </DropdownItem>
+                  <DropdownItem
+                    className="text-destructive data-[highlighted]:bg-destructive/10"
+                    onClick={() => setDeactivateUser(user)}
                   >
                     Deactivate
-                  </button>
-                </div>
-              ) : null}
-            </div>
+                  </DropdownItem>
+                </DropdownContent>
+              </Dropdown>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
-      {(showInviteModal || bonusUser || roleUser || deactivateUser) && (
-        <div className="fixed inset-0 z-40 bg-black/60">
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl border border-[--border] bg-[--bg-overlay] p-5">
-            {showInviteModal ? (
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-[--text-primary]">Invite someone</h2>
-                  <button onClick={() => setShowInviteModal(false)} className="p-1">
-                    <X size={16} className="text-[--text-secondary]" />
-                  </button>
-                </div>
-                <input
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  type="email"
-                  placeholder="name@company.com"
-                  className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
-                />
-                <button
-                  onClick={handleInvite}
-                  disabled={isSaving || !inviteEmail}
-                  className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-                >
-                  {isSaving ? "Sending..." : "Send invite"}
-                </button>
-              </div>
-            ) : null}
+      <Sheet
+        open={showInviteModal || !!bonusUser || !!roleUser || !!deactivateUser}
+        onOpenChange={(open) => {
+          if (!open) closeAllModals();
+        }}
+      >
+        <SheetContent>
+          {showInviteModal ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Invite someone</SheetTitle>
+                <SheetDescription>
+                  We&apos;ll send an email invitation with a magic link.
+                </SheetDescription>
+              </SheetHeader>
+              <Input
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                type="email"
+                placeholder="name@company.com"
+              />
+              <Button
+                onClick={handleInvite}
+                disabled={isSaving || !inviteEmail}
+                className="w-full"
+              >
+                {isSaving ? "Sending..." : "Send invite"}
+              </Button>
+            </div>
+          ) : null}
 
-            {bonusUser ? (
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-[--text-primary]">Grant bonus coins</h2>
-                  <button onClick={() => setBonusUser(null)} className="p-1">
-                    <X size={16} className="text-[--text-secondary]" />
-                  </button>
-                </div>
-                <label className="mb-2 block text-sm text-[--text-secondary]">How many bonus coins?</label>
-                <input
+          {bonusUser ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Grant bonus coins</SheetTitle>
+                <SheetDescription>For {bonusUser.name}</SheetDescription>
+              </SheetHeader>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted">How many bonus coins?</label>
+                <Input
                   value={bonusAmount}
                   onChange={(event) => setBonusAmount(Math.max(1, Number(event.target.value) || 1))}
                   type="number"
                   min={1}
                   max={50}
-                  className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
                 />
-                <label className="mb-2 mt-3 block text-sm text-[--text-secondary]">Reason (optional)</label>
-                <input
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted">Reason (optional)</label>
+                <Input
                   value={bonusReason}
                   onChange={(event) => setBonusReason(event.target.value)}
                   type="text"
-                  className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
+                  placeholder="e.g. great work on Q4 launch"
                 />
-                <button
-                  onClick={handleBonusGrant}
-                  disabled={isSaving}
-                  className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-                >
-                  {isSaving ? "Granting..." : "Grant"}
-                </button>
               </div>
-            ) : null}
+              <Button onClick={handleBonusGrant} disabled={isSaving} className="w-full">
+                {isSaving ? "Granting..." : "Grant"}
+              </Button>
+            </div>
+          ) : null}
 
-            {roleUser ? (
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-[--text-primary]">Change role</h2>
-                  <button onClick={() => setRoleUser(null)} className="p-1">
-                    <X size={16} className="text-[--text-secondary]" />
-                  </button>
-                </div>
-                <select
-                  value={roleValue}
-                  onChange={(event) => setRoleValue(event.target.value as Role)}
-                  className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
-                >
-                  <option value="EMPLOYEE">Employee</option>
-                  <option value="MANAGER">Manager</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-                <button
-                  onClick={handleRoleChange}
-                  disabled={isSaving}
-                  className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-                >
-                  {isSaving ? "Saving..." : "Save role"}
-                </button>
-              </div>
-            ) : null}
+          {roleUser ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Change role</SheetTitle>
+                <SheetDescription>For {roleUser.name}</SheetDescription>
+              </SheetHeader>
+              <select
+                value={roleValue}
+                onChange={(event) => setRoleValue(event.target.value as Role)}
+                className="h-12 w-full rounded-[12px] border border-border bg-input px-4 text-sm text-foreground outline-none transition-colors focus:border-border-strong"
+              >
+                <option value="EMPLOYEE">Employee</option>
+                <option value="MANAGER">Manager</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+              <Button onClick={handleRoleChange} disabled={isSaving} className="w-full">
+                {isSaving ? "Saving..." : "Save role"}
+              </Button>
+            </div>
+          ) : null}
 
-            {deactivateUser ? (
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-[--text-primary]">Deactivate user</h2>
-                  <button onClick={() => setDeactivateUser(null)} className="p-1">
-                    <X size={16} className="text-[--text-secondary]" />
-                  </button>
-                </div>
-                <p className="text-sm text-[--text-secondary]">
-                  Are you sure you want to deactivate {deactivateUser.name}?
-                </p>
-                <button
-                  onClick={handleDeactivate}
-                  disabled={isSaving}
-                  className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-                >
-                  {isSaving ? "Deactivating..." : "Confirm deactivate"}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
+          {deactivateUser ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Deactivate user</SheetTitle>
+                <SheetDescription>
+                  {deactivateUser.name} will no longer be able to send or receive recognition.
+                </SheetDescription>
+              </SheetHeader>
+              <Button onClick={handleDeactivate} disabled={isSaving} variant="danger" className="w-full">
+                {isSaving ? "Deactivating..." : "Confirm deactivate"}
+              </Button>
+              <Button
+                onClick={() => setDeactivateUser(null)}
+                variant="outline"
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
-      {toast ? (
-        <div className="fixed bottom-20 left-1/2 z-50 w-[calc(100%-40px)] max-w-lg -translate-x-1/2">
-          <div
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[--accent-border] bg-[--bg-overlay] text-[--text-primary]"
-                : "border-[--error] bg-[--bg-overlay] text-[--text-primary]"
-            }`}
-          >
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
+      <AppToast toast={toast} />
     </section>
   );
 }

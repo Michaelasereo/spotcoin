@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Award, BarChart2, Sparkles, TrendingDown, TrendingUp } from "lucide-react";
+import { AppToast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Segmented } from "@/components/ui/segmented";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 type Period = "this_month" | "last_month" | "ytd";
 type LeaderboardTab = "senders" | "receivers";
@@ -25,11 +32,6 @@ type AnalyticsPayload = {
   }>;
 };
 
-type ToastState = {
-  message: string;
-  type: "success" | "error";
-} | null;
-
 const periodLabels: Record<Period, string> = {
   this_month: "This month",
   last_month: "Last month",
@@ -48,12 +50,7 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isNudging, setIsNudging] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState>(null);
-
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const { toast, showToast } = useToast();
 
   useEffect(() => {
     const load = async () => {
@@ -104,163 +101,178 @@ export default function AdminAnalyticsPage() {
   };
 
   return (
-    <section className="px-5 pb-8">
-      <header className="py-4">
-        <h1 className="text-lg font-semibold text-[--text-primary]">Analytics</h1>
+    <section className="pb-10">
+      <header className="py-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">Workspace</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Analytics</h1>
+        <p className="mt-1 text-xs text-muted">Track recognition health across your team.</p>
       </header>
 
-      <div className="mb-4 flex rounded-full border border-[--border] bg-[--bg-card] p-1">
-        {(Object.keys(periodLabels) as Period[]).map((periodKey) => (
-          <button
-            key={periodKey}
-            onClick={() => setPeriod(periodKey)}
-            className={`flex-1 rounded-full py-2 text-sm font-medium transition-all ${
-              period === periodKey ? "bg-[--bg-overlay] text-[--text-primary]" : "text-[--text-secondary]"
-            }`}
-          >
-            {periodLabels[periodKey]}
-          </button>
-        ))}
+      <div className="mb-6">
+        <Segmented
+          items={(Object.keys(periodLabels) as Period[]).map((periodKey) => ({
+            id: periodKey,
+            label: periodLabels[periodKey],
+          }))}
+          value={period}
+          onChange={(next) => setPeriod(next as Period)}
+        />
       </div>
 
       {isLoading || !data ? (
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="animate-pulse rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-              <div className="h-4 w-40 rounded bg-[--bg-card-2]" />
-              <div className="mt-2 h-3 w-24 rounded bg-[--bg-card-2]" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Total recognitions", value: data.summary.totalRecognitions },
-              { label: "Total coins given", value: data.summary.totalCoinsGiven },
-              { label: "Active employees", value: data.summary.activeUsers },
-              { label: "Avg per person", value: data.summary.avgPerUser },
-            ].map((item) => (
-              <div key={item.label} className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-                <p className="text-[10px] uppercase tracking-[0.08em] text-[--text-secondary]">
-                  {item.label}
-                </p>
-                <p className="mt-1 font-mono text-3xl font-bold text-[--text-primary]">{item.value}</p>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="rounded-[20px] border border-border bg-card p-5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="mt-3 h-8 w-16" />
               </div>
             ))}
           </div>
-
-          <div>
-            <div className="mb-2 flex rounded-full border border-[--border] bg-[--bg-card] p-1">
-              <button
-                onClick={() => setLeaderboardTab("senders")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${
-                  leaderboardTab === "senders"
-                    ? "bg-[--bg-overlay] text-[--text-primary]"
-                    : "text-[--text-secondary]"
-                }`}
-              >
-                Top senders
-              </button>
-              <button
-                onClick={() => setLeaderboardTab("receivers")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${
-                  leaderboardTab === "receivers"
-                    ? "bg-[--bg-overlay] text-[--text-primary]"
-                    : "text-[--text-secondary]"
-                }`}
-              >
-                Top receivers
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {leaderboardRows.map((row, index) => (
-                <div
-                  key={row.userId}
-                  className={`flex items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3 ${
-                    index < 3 ? "border-l-4 border-l-[--accent-border]" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-5 text-xs font-mono text-[--text-tertiary]">{index + 1}</span>
-                    <span className="text-sm text-[--text-primary]">{row.name}</span>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Recognitions", value: data.summary.totalRecognitions, icon: Sparkles },
+              { label: "Coins given", value: data.summary.totalCoinsGiven, icon: BarChart2 },
+              { label: "Active people", value: data.summary.activeUsers, icon: TrendingUp },
+              { label: "Avg per person", value: data.summary.avgPerUser, icon: Award },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="rounded-[20px] border border-border bg-card p-5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+                      {item.label}
+                    </p>
+                    <Icon size={14} className="text-muted" />
                   </div>
-                  <span className="font-mono text-sm font-semibold text-[--text-primary]">{row.count}</span>
+                  <p className="mt-2 font-mono text-[28px] font-bold leading-none text-foreground">
+                    {item.value}
+                  </p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
-          <div>
-            <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">By value</p>
-            <div className="space-y-2">
-              {data.valueCounts.map((item) => (
-                <div key={item.valueId} className="rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3">
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="text-[--text-primary]">
-                      {item.emoji} {item.name}
-                    </span>
-                    <span className="font-mono text-[--text-secondary]">{item.count}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-[--bg-card-2]">
-                    <div
-                      className="h-2 rounded-full bg-[--text-primary]"
-                      style={{ width: `${(item.count / maxValueCount) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--warning]">Needs attention</p>
-            {data.disengaged.length === 0 ? (
-              <div className="rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3 text-sm text-[--text-secondary]">
-                Everyone&apos;s active 🎉
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+                Leaderboard
+              </h2>
+              <div className="w-44">
+                <Segmented
+                  items={[
+                    { id: "senders", label: "Senders" },
+                    { id: "receivers", label: "Receivers" },
+                  ]}
+                  value={leaderboardTab}
+                  onChange={(next) => setLeaderboardTab(next as LeaderboardTab)}
+                />
               </div>
+            </div>
+
+            {leaderboardRows.length === 0 ? (
+              <EmptyState title="No data for this period yet." />
+            ) : (
+              <ul className="overflow-hidden rounded-[16px] border border-border bg-card">
+                {leaderboardRows.map((row, index) => {
+                  const isPodium = index < 3;
+                  return (
+                    <li
+                      key={row.userId}
+                      className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+                    >
+                      <span
+                        className={
+                          isPodium
+                            ? "flex h-7 w-7 items-center justify-center rounded-full border border-accent/30 bg-accent/10 font-mono text-xs font-semibold text-accent"
+                            : "flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card-2 font-mono text-xs text-muted"
+                        }
+                      >
+                        {index + 1}
+                      </span>
+                      <span className="flex-1 truncate text-sm text-foreground">{row.name}</span>
+                      <span className="font-mono text-sm font-semibold text-foreground">
+                        {row.count}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+              By value
+            </h2>
+            {data.valueCounts.length === 0 ? (
+              <EmptyState title="No values used yet." />
+            ) : (
+              <div className="space-y-2">
+                {data.valueCounts.map((item) => (
+                  <div
+                    key={item.valueId}
+                    className="rounded-[16px] border border-border bg-card px-4 py-3.5"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm text-foreground">
+                        <span className="text-base">{item.emoji}</span>
+                        <span>{item.name}</span>
+                      </span>
+                      <span className="font-mono text-xs text-muted">{item.count}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-card-2">
+                      <div
+                        className="h-full rounded-full bg-foreground/80 transition-[width]"
+                        style={{ width: `${(item.count / maxValueCount) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.12em] text-warning">
+              <TrendingDown size={12} />
+              Needs attention
+            </h2>
+            {data.disengaged.length === 0 ? (
+              <EmptyState title="Everyone's active." description="No disengaged teammates this period." />
             ) : (
               <div className="space-y-2">
                 {data.disengaged.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5"
+                    className="flex items-center justify-between gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5"
                   >
-                    <div>
-                      <p className="text-sm text-[--text-primary]">{user.name}</p>
-                      <p className="text-xs text-[--text-secondary]">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+                      <p className="truncate text-[11px] text-muted">
                         Last active {formatLastActive(user.lastActiveAt)}
                       </p>
                     </div>
-                    <button
+                    <Button
                       onClick={() => void handleNudge(user.id)}
                       disabled={isNudging === user.id}
-                      className="rounded-full border border-[--border-mid] px-4 py-2 text-sm text-[--text-primary] disabled:opacity-50"
+                      variant="outline"
+                      size="sm"
                     >
                       {isNudging === user.id ? "Sending..." : "Nudge"}
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </section>
         </div>
       )}
 
-      {toast ? (
-        <div className="fixed bottom-20 left-1/2 z-50 w-[calc(100%-40px)] max-w-lg -translate-x-1/2">
-          <div
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[--accent-border] bg-[--bg-overlay] text-[--text-primary]"
-                : "border-[--error] bg-[--bg-overlay] text-[--text-primary]"
-            }`}
-          >
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
+      <AppToast toast={toast} />
     </section>
   );
 }

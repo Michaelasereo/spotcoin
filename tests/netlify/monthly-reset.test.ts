@@ -33,7 +33,7 @@ describe("monthly-reset function", () => {
     };
     mockPrisma.$transaction.mockImplementation(async (cb: any) => cb(tx));
 
-    const monthlyReset = (await import("./monthly-reset.mts")).default;
+    const monthlyReset = (await import("../../netlify/functions/monthly-reset.mts")).default;
     await monthlyReset();
 
     expect(tx.user.update).toHaveBeenCalled();

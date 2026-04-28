@@ -1,8 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, X } from "lucide-react";
+import Image from "next/image";
+import { Heart, Search, Sparkles, X } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 
 type SearchUser = {
   id: string;
@@ -33,6 +41,9 @@ type ValuesResponse = {
 type SearchResponse = {
   data: SearchUser[];
 };
+
+const MAX_MESSAGE = 280;
+const MIN_MESSAGE = 10;
 
 export default function RecognisePage() {
   const [coinsToGive, setCoinsToGive] = useState(0);
@@ -103,10 +114,11 @@ export default function RecognisePage() {
     [coinsToGive],
   );
 
+  const messageOk = message.trim().length >= MIN_MESSAGE && message.length <= MAX_MESSAGE;
   const canSubmit =
     Boolean(selectedRecipient) &&
     Boolean(selectedValueId) &&
-    message.trim().length >= 10 &&
+    messageOk &&
     coinAmount >= 1 &&
     coinsToGive > 0 &&
     !isSubmitting;
@@ -157,178 +169,207 @@ export default function RecognisePage() {
 
   if (isBootLoading) {
     return (
-      <section className="px-5 py-6">
-        <div className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-          <div className="animate-pulse space-y-3">
-            <div className="h-4 w-32 rounded bg-[--bg-card-2]" />
-            <div className="h-20 w-full rounded bg-[--bg-card-2]" />
+      <section className="pb-10">
+        <PageHeader title="Recognise" />
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </section>
+    );
+  }
+
+  if (coinsToGive === 0 && !didSubmit) {
+    return (
+      <section className="pb-10">
+        <PageHeader title="Recognise" />
+        <EmptyState
+          icon={Sparkles}
+          title="You've used all your coins this month."
+          description="They refill on the 1st. Come back then to recognise more teammates."
+        />
+      </section>
+    );
+  }
+
+  if (didSubmit && selectedRecipient) {
+    return (
+      <section className="pb-10">
+        <PageHeader title="Recognise" />
+        <div className="rounded-[20px] border border-accent/30 bg-accent/10 p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-accent/30 bg-accent/15">
+            <Heart size={20} className="text-accent" />
           </div>
+          <p className="mt-4 text-base font-semibold tracking-tight text-foreground">
+            Spotcoin sent to {selectedRecipient.name}
+          </p>
+          <p className="mt-1 text-xs text-muted">They&apos;ll be notified in Slack shortly.</p>
+          <Button onClick={resetForm} variant="outline" className="mt-6 w-full">
+            Send another
+          </Button>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="px-5 pb-8">
-      <header className="flex items-center gap-3 py-4">
-        <Link href="/dashboard" aria-label="Back to dashboard">
-          <ChevronLeft size={20} className="text-[--text-primary]" />
-        </Link>
-        <h1 className="text-lg font-semibold text-[--text-primary]">Recognise</h1>
-      </header>
+    <section className="pb-[calc(env(safe-area-inset-bottom)+96px)]">
+      <PageHeader
+        title="Recognise"
+        description={`You have ${coinsToGive} ${coinsToGive === 1 ? "coin" : "coins"} to give`}
+      />
 
-      {coinsToGive === 0 ? (
-        <div className="mt-12 text-center">
-          <p className="text-3xl">🪙</p>
-          <p className="mt-3 text-sm text-[--text-primary]">You've used all your coins this month.</p>
-          <p className="mt-1 text-sm text-[--text-secondary]">
-            They refill on the 1st. Come back then.
-          </p>
-        </div>
-      ) : didSubmit && selectedRecipient ? (
-        <div className="mt-8 rounded-2xl border border-[--border-mid] bg-[--bg-card] p-5 text-center">
-          <p className="text-2xl">🎉</p>
-          <p className="mt-2 text-sm font-semibold text-[--text-primary]">
-            Spotcoin sent to {selectedRecipient.name}!
-          </p>
-          <button
-            type="button"
-            onClick={resetForm}
-            className="mt-4 text-sm text-[--text-secondary] underline"
-          >
-            Send another
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          <div>
-            <p className="mb-2 text-[13px] text-[--text-secondary]">Who deserves a Spotcoin?</p>
-            {selectedRecipient ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-[--accent-border] bg-[--accent-bg] px-3 py-1 text-sm text-[--accent]">
-                <span>{selectedRecipient.name}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRecipient(null);
-                    setSearch("");
-                    setSearchResults([]);
-                  }}
-                  aria-label="Clear selected recipient"
-                >
-                  <X size={14} />
-                </button>
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+            Recipient
+          </label>
+          {selectedRecipient ? (
+            <div className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-card px-3 py-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Avatar name={selectedRecipient.name} size="sm" />
+                <div className="min-w-0 leading-tight">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {selectedRecipient.name}
+                  </p>
+                  <p className="truncate text-[11px] text-muted">{selectedRecipient.email}</p>
+                </div>
               </div>
-            ) : (
-              <>
-                <input
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRecipient(null);
+                  setSearch("");
+                  setSearchResults([]);
+                }}
+                aria-label="Clear selected recipient"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card-2 text-muted transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
+                <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search by name..."
-                  className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] placeholder:text-[--text-tertiary] outline-none transition-colors focus:border-[--border-mid]"
+                  className="pl-10"
                 />
-                {isSearching ? (
-                  <p className="mt-2 text-xs text-[--text-tertiary]">Searching...</p>
-                ) : null}
-                {searchResults.length > 0 ? (
-                  <div className="mt-2 space-y-2">
-                    {searchResults.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedRecipient(user);
-                          setSearchResults([]);
-                          setSearch("");
-                        }}
-                        className="flex w-full items-start justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3 text-left"
-                      >
-                        <span className="text-sm text-[--text-primary]">{user.name}</span>
-                        <span className="text-xs text-[--text-secondary]">{user.email}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-
-          <div>
-            <p className="mb-2 text-[13px] text-[--text-secondary]">What did they demonstrate?</p>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {values.map((value) => {
-                const selected = selectedValueId === value.id;
-                return (
-                  <button
-                    key={value.id}
-                    type="button"
-                    onClick={() => setSelectedValueId(value.id)}
-                    className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium ${
-                      selected
-                        ? "border-[--accent-border] bg-[--accent-bg] text-[--accent]"
-                        : "border-[--border] bg-[--bg-card] text-[--text-secondary]"
-                    }`}
-                  >
-                    {value.emoji} {value.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-[13px] text-[--text-secondary]">Tell them why</p>
-            <textarea
-              rows={4}
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] placeholder:text-[--text-tertiary] outline-none transition-colors focus:border-[--border-mid]"
-              placeholder="Share what they did well..."
-            />
-            <p className="mt-1 text-right text-xs text-[--text-tertiary]">{message.length} / 280</p>
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-[13px] text-[--text-secondary]">How many coins?</p>
-              <p className="text-xs text-[--text-secondary]">You have {coinsToGive} left</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {availableCoins.map((coin) => {
-                const selected = coinAmount === coin;
-                return (
-                  <button
-                    key={coin}
-                    type="button"
-                    onClick={() => setCoinAmount(coin)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                      selected
-                        ? "border-[--accent-border] bg-[--accent-bg] text-[--accent]"
-                        : "border-[--border] bg-[--bg-card] text-[--text-secondary]"
-                    }`}
-                  >
-                    {coin}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {submitError ? (
-            <div className="rounded-2xl border border-[--error] bg-[--bg-card] px-4 py-3">
-              <p className="text-sm text-[--text-primary]">{submitError}</p>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] transition-opacity active:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? "Sending..." : "Send Spotcoin 🪙"}
-          </button>
+              </div>
+              {isSearching ? (
+                <p className="px-1 text-[11px] text-muted">Searching...</p>
+              ) : null}
+              {searchResults.length > 0 ? (
+                <div className="space-y-1.5 rounded-[14px] border border-border bg-card p-1.5">
+                  {searchResults.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRecipient(user);
+                        setSearchResults([]);
+                        setSearch("");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors hover:bg-card-2"
+                    >
+                      <Avatar name={user.name} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-foreground">{user.name}</p>
+                        <p className="truncate text-[11px] text-muted">{user.email}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
-      )}
+
+        <div className="space-y-2">
+          <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+            Value demonstrated
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {values.map((value) => {
+              const selected = selectedValueId === value.id;
+              return (
+                <Chip
+                  key={value.id}
+                  onClick={() => setSelectedValueId(value.id)}
+                  selected={selected}
+                >
+                  {value.emoji} {value.name}
+                </Chip>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+            Message
+          </label>
+          <Textarea
+            rows={4}
+            value={message}
+            onChange={(event) => setMessage(event.target.value.slice(0, MAX_MESSAGE))}
+            placeholder="Share what they did well..."
+          />
+          <div className="flex items-center justify-between px-1 text-[11px]">
+            <span className={message.length > 0 && !messageOk ? "text-destructive" : "text-muted"}>
+              Min {MIN_MESSAGE} characters
+            </span>
+            <span className="font-mono text-muted">
+              {message.length} / {MAX_MESSAGE}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+              Coins to send
+            </label>
+            <span className="text-[11px] text-muted">{coinsToGive} left this month</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {availableCoins.map((coin) => {
+              const selected = coinAmount === coin;
+              return (
+                <Chip
+                  key={coin}
+                  onClick={() => setCoinAmount(coin)}
+                  selected={selected}
+                  className="min-w-[44px] justify-center font-mono"
+                >
+                  {coin}
+                </Chip>
+              );
+            })}
+          </div>
+        </div>
+
+        {submitError ? (
+          <div className="rounded-[14px] border border-destructive/40 bg-destructive/10 px-4 py-3">
+            <p className="text-sm text-destructive">{submitError}</p>
+          </div>
+        ) : null}
+
+        <Button type="button" disabled={!canSubmit} onClick={handleSubmit} className="w-full">
+          {isSubmitting ? (
+            "Sending..."
+          ) : (
+            <>
+              Send Spotcoin
+              <Image src="/logomark.png" alt="" width={14} height={14} />
+            </>
+          )}
+        </Button>
+      </div>
     </section>
   );
 }

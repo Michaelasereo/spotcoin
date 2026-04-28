@@ -1,46 +1,100 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --bg-base: #0a0a0a;
-  --bg-card: #141414;
-  --bg-card-2: #1c1c1c;
-  --bg-input: #1c1c1c;
-  --bg-overlay: #242424;
+@theme {
+  --color-background: #0d0d0d;
+  --color-foreground: #f5f5f5;
+  --color-muted: #8a8a8a;
 
-  --border: rgba(255, 255, 255, 0.07);
-  --border-mid: rgba(255, 255, 255, 0.12);
+  --color-card: #161616;
+  --color-card-2: #1a1a1a;
+  --color-input: #1e1e1e;
+  --color-overlay: #242424;
 
-  --text-primary: #f5f5f5;
-  --text-secondary: #8a8a8a;
-  --text-tertiary: #555555;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
 
-  --accent: #22c55e;
-  --accent-bg: rgba(34, 197, 94, 0.15);
-  --accent-border: rgba(34, 197, 94, 0.3);
+  --color-accent: #22c55e;
+  --color-warning: #f59e0b;
+  --color-destructive: #ef4444;
 
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  --color-nav: #101010;
 
-  --nav-bg: #0f0f0f;
-  --nav-border: rgba(255, 255, 255, 0.06);
-  --nav-active: #f5f5f5;
-  --nav-inactive: #4a4a4a;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
 
-  color-scheme: dark;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+  }
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: var(--bg-base);
-  color: var(--text-primary);
+@layer components {
+  .app-top-glow::before,
+  .app-top-glow::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 900px;
+    height: 500px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app-top-glow::before {
+    background: radial-gradient(
+      ellipse 70% 60% at 50% 0%,
+      rgba(255, 255, 255, 0.07) 0%,
+      transparent 100%
+    );
+  }
+
+  .app-top-glow::after {
+    background: radial-gradient(
+      ellipse 50% 40% at 50% 0%,
+      rgba(200, 160, 120, 0.04) 0%,
+      transparent 100%
+    );
+  }
+}
+
+@keyframes spotcoin-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }

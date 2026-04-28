@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Heart, House, Settings, Wallet } from "lucide-react";
+import { getNavItems } from "@/lib/nav-items";
+import { cn } from "@/lib/utils";
 
 type BottomNavProps = {
   isAdmin: boolean;
@@ -10,31 +11,36 @@ type BottomNavProps = {
 
 export function BottomNav({ isAdmin }: BottomNavProps) {
   const pathname = usePathname();
-
-  const items = [
-    { href: "/dashboard", label: "Home", icon: House },
-    { href: "/dashboard/feed", label: "Feed", icon: Activity },
-    { href: "/dashboard/recognise", label: "Recognise", icon: Heart },
-    { href: "/dashboard/wallet", label: "Wallet", icon: Wallet },
-    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Settings }] : []),
-  ];
+  const items = getNavItems(isAdmin);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[--nav-border] bg-[--nav-bg] px-2 py-3">
-      <div className="mx-auto flex w-full max-w-lg items-center justify-around">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-nav/90 px-2 py-2 pb-[max(env(safe-area-inset-bottom),8px)] backdrop-blur supports-[backdrop-filter]:bg-nav/70 md:hidden">
+      <div className="mx-auto flex w-full max-w-md items-stretch justify-around">
         {items.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1">
-              <Icon
-                size={22}
-                className={isActive ? "text-[--nav-active]" : "text-[--nav-inactive]"}
-              />
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex flex-1 flex-col items-center gap-1 py-1"
+              aria-current={isActive ? "page" : undefined}
+            >
               <span
-                className={`text-[10px] font-medium ${
-                  isActive ? "text-[--nav-active]" : "text-[--nav-inactive]"
-                }`}
+                className={cn(
+                  "flex h-8 w-12 items-center justify-center rounded-full transition-colors",
+                  isActive ? "bg-card text-foreground" : "text-muted/70",
+                )}
+              >
+                <Icon size={18} />
+              </span>
+              <span
+                className={cn(
+                  "text-[10px] font-medium",
+                  isActive ? "text-foreground" : "text-muted/70",
+                )}
               >
                 {item.label}
               </span>

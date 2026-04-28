@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Check, Plus, Slack, Sparkles, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type WorkspaceResponse = {
   data: {
@@ -21,6 +28,8 @@ const suggestedValues = [
   { name: "Speed", emoji: "⚡" },
   { name: "Quality", emoji: "✅" },
 ];
+
+const stepLabels = ["Welcome", "Values", "Slack", "Invites"];
 
 function parseInviteInput(raw: string) {
   return raw
@@ -171,7 +180,7 @@ export default function AdminOnboardingPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ onboardingComplete: true }),
       });
-      router.push("/admin/users");
+      router.push("/admin");
       router.refresh();
     } finally {
       setIsSaving(false);
@@ -179,164 +188,222 @@ export default function AdminOnboardingPage() {
   };
 
   return (
-    <section className="min-h-screen px-5 pb-8 pt-6">
-      <div className="mb-6 flex items-center justify-center gap-2">
-        {[1, 2, 3, 4].map((dot) => (
-          <span
-            key={dot}
-            className={`h-2.5 w-2.5 rounded-full ${
-              step === dot ? "bg-[--text-primary]" : "bg-[--bg-card-2]"
-            }`}
-          />
-        ))}
+    <section className="pb-[calc(env(safe-area-inset-bottom)+96px)] pt-2">
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">
+            Step {step} of 4
+          </p>
+          <p className="text-[11px] font-medium tracking-tight text-foreground">
+            {stepLabels[step - 1]}
+          </p>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {stepLabels.map((_, index) => (
+            <span
+              key={index}
+              className={cn(
+                "h-1 rounded-full transition-colors",
+                index + 1 <= step ? "bg-foreground" : "bg-card-2",
+              )}
+            />
+          ))}
+        </div>
       </div>
 
       {step === 1 ? (
-        <div className="text-center">
-          <p className="text-4xl">🪙</p>
-          <h1 className="mt-4 text-[28px] font-bold text-[--text-primary]">Welcome to Spotcoin</h1>
-          <p className="mt-4 text-sm leading-relaxed text-[--text-secondary]">
-            Every month your team gets 5 Spotcoins to send to colleagues. Coins received become
-            Spot-tokens. At year-end, each token is worth ₦1,000 in cash.
+        <div className="rounded-[20px] border border-border bg-card p-6 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[14px] border border-border bg-card-2">
+            <Image src="/logomark.png" alt="Spotcoin" width={26} height={26} />
+          </div>
+          <h1 className="mt-5 text-[26px] font-bold leading-tight tracking-tight text-foreground">
+            Welcome to Spotcoin
+          </h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-muted">
+            Every month your team gets coins to recognize colleagues. Coins received become Spot
+            Tokens. At year-end, each token converts to cash.
           </p>
-          <button
-            onClick={() => setStep(2)}
-            className="mt-8 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base]"
-          >
-            Get started →
-          </button>
+          <Button onClick={() => setStep(2)} className="mt-7 w-full">
+            Get started
+            <ArrowRight size={14} />
+          </Button>
         </div>
       ) : null}
 
       {step === 2 ? (
-        <div>
-          <h2 className="text-xl font-semibold text-[--text-primary]">What does your team stand for?</h2>
-          <p className="mt-2 text-sm text-[--text-secondary]">Select at least 3 values to continue.</p>
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              What does your team stand for?
+            </h2>
+            <p className="mt-2 text-sm text-muted">Select at least 3 values to continue.</p>
+          </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {suggestedValues.map((value) => {
               const selected = selectedValues.some(
                 (item) => item.name.toLowerCase() === value.name.toLowerCase(),
               );
               return (
-                <button
+                <Chip
                   key={value.name}
                   onClick={() => toggleSuggested(value)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    selected
-                      ? "border-[--accent-border] bg-[--accent-bg] text-[--accent]"
-                      : "border-[--border] bg-[--bg-card] text-[--text-secondary]"
-                  }`}
+                  selected={selected}
                 >
                   {value.emoji} {value.name}
-                </button>
+                </Chip>
               );
             })}
           </div>
 
-          <div className="mt-4 rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-            <p className="mb-2 text-sm text-[--text-secondary]">Add custom value</p>
-            <div className="flex gap-2">
-              <input
+          <div className="rounded-[16px] border border-border bg-card p-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+              Add custom value
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Input
                 value={customValueEmoji}
                 onChange={(event) => setCustomValueEmoji(event.target.value)}
-                className="w-16 rounded-xl border border-[--border] bg-[--bg-input] px-3 py-2 text-center text-sm text-[--text-primary] outline-none"
+                className="w-16 text-center"
+                aria-label="Emoji"
               />
-              <input
+              <Input
                 value={customValueName}
                 onChange={(event) => setCustomValueName(event.target.value)}
                 placeholder="Value name"
-                className="flex-1 rounded-xl border border-[--border] bg-[--bg-input] px-4 py-2 text-sm text-[--text-primary] outline-none"
+                className="flex-1"
               />
             </div>
-            <button
-              onClick={addCustomValue}
-              className="mt-3 rounded-full border border-[--border-mid] px-4 py-2 text-sm text-[--text-primary]"
-            >
+            <Button onClick={addCustomValue} className="mt-3" variant="outline" size="sm">
+              <Plus size={14} />
               Add value
-            </button>
+            </Button>
           </div>
 
-          <button
+          <Button
             disabled={!canContinueValues || isSaving}
             onClick={async () => {
               const ok = await persistValuesIfNeeded();
               if (ok) setStep(3);
             }}
-            className="mt-6 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
+            className="w-full"
           >
-            {isSaving ? "Saving..." : "Continue →"}
-          </button>
+            {isSaving ? "Saving..." : (
+              <>
+                Continue
+                <ArrowRight size={14} />
+              </>
+            )}
+          </Button>
         </div>
       ) : null}
 
       {step === 3 ? (
-        <div>
-          <h2 className="text-xl font-semibold text-[--text-primary]">Bring Spotcoin into Slack</h2>
-          <p className="mt-2 text-sm text-[--text-secondary]">
-            Connect your Slack workspace so your team can recognize colleagues without leaving Slack.
-          </p>
-          <a
-            href="/api/slack/oauth/start"
-            className="mt-6 block w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-center text-sm font-semibold text-[--bg-base]"
-          >
-            Connect Slack
-          </a>
-          <button
-            onClick={() => setStep(4)}
-            className="mt-3 w-full text-sm text-[--text-secondary] underline"
-          >
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              Bring Spotcoin into Slack
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Connect your Slack workspace so your team can recognize colleagues without leaving
+              Slack.
+            </p>
+          </div>
+
+          <div className="rounded-[16px] border border-border bg-card p-5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[12px] border border-border bg-card-2">
+              <Slack size={20} className="text-foreground" />
+            </div>
+            <p className="mt-4 text-sm font-semibold text-foreground">Slack workspace</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              We&apos;ll request permission to post recognition messages and listen for slash
+              commands.
+            </p>
+            <Button className="mt-5 w-full" asChild>
+              <a href="/api/slack/oauth/start">
+                <Slack size={14} />
+                Connect Slack
+              </a>
+            </Button>
+          </div>
+
+          <Button onClick={() => setStep(4)} className="w-full" variant="ghost">
             Skip for now
-          </button>
+          </Button>
         </div>
       ) : null}
 
       {step === 4 ? (
-        <div>
-          <h2 className="text-xl font-semibold text-[--text-primary]">Who&apos;s on your team?</h2>
-          <p className="mt-2 text-sm text-[--text-secondary]">
-            Add one email per line (or comma-separated) and send invites.
-          </p>
-          <textarea
-            rows={6}
-            value={inviteInput}
-            onChange={(event) => setInviteInput(event.target.value)}
-            placeholder={"alice@company.com\nbob@company.com"}
-            className="mt-4 w-full rounded-2xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
-          />
-          <button
-            disabled={isSaving}
-            onClick={() => void sendInvites()}
-            className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-          >
-            {isSaving ? "Sending..." : "Send invites"}
-          </button>
+        <div className="space-y-5">
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              Who&apos;s on your team?
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Add one email per line (or comma-separated) and send invites.
+            </p>
+          </div>
+
+          <div className="rounded-[16px] border border-border bg-card p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Users size={14} className="text-muted" />
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+                Invite teammates
+              </p>
+            </div>
+            <Textarea
+              rows={6}
+              value={inviteInput}
+              onChange={(event) => setInviteInput(event.target.value)}
+              placeholder={"alice@company.com\nbob@company.com"}
+            />
+            <Button
+              disabled={isSaving || inviteInput.trim().length === 0}
+              onClick={() => void sendInvites()}
+              className="mt-3 w-full"
+            >
+              {isSaving ? "Sending..." : "Send invites"}
+            </Button>
+          </div>
 
           {inviteResults.length > 0 ? (
-            <div className="mt-4 rounded-2xl border border-[--border] bg-[--bg-card] p-3">
-              <p className="text-sm font-medium text-[--text-primary]">
-                {inviteSummary.successCount} sent, {inviteSummary.failedCount} failed
+            <div className="rounded-[16px] border border-border bg-card p-4">
+              <p className="text-sm font-semibold text-foreground">
+                {inviteSummary.successCount} sent
+                {inviteSummary.failedCount > 0
+                  ? ` · ${inviteSummary.failedCount} failed`
+                  : ""}
               </p>
-              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
+              <div className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
                 {inviteResults.map((result) => (
-                  <p key={result.email} className="text-xs text-[--text-secondary]">
-                    <span className={result.status === "success" ? "text-[--accent]" : "text-[--error]"}>
-                      {result.status === "success" ? "Success" : "Failed"}
-                    </span>{" "}
-                    - {result.email}: {result.message}
+                  <p
+                    key={result.email}
+                    className="flex items-start gap-1.5 text-[11px] text-muted"
+                  >
+                    {result.status === "success" ? (
+                      <Check size={12} className="mt-0.5 shrink-0 text-accent" />
+                    ) : (
+                      <Sparkles size={12} className="mt-0.5 shrink-0 text-destructive" />
+                    )}
+                    <span className="min-w-0 truncate">
+                      <span className="font-medium text-foreground">{result.email}</span>
+                      <span className="ml-1 text-muted">— {result.message}</span>
+                    </span>
                   </p>
                 ))}
               </div>
             </div>
           ) : null}
 
-          <button
+          <Button
             disabled={isSaving}
             onClick={() => void completeOnboarding()}
-            className="mt-6 w-full rounded-full border border-[--border-mid] px-5 py-2.5 text-sm text-[--text-primary] disabled:opacity-50"
+            className="w-full"
+            variant="outline"
           >
-            Go to dashboard →
-          </button>
+            Go to dashboard
+            <ArrowRight size={14} />
+          </Button>
         </div>
       ) : null}
     </section>

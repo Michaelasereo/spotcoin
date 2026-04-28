@@ -2,7 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Coins,
+  Hash,
+  Plus,
+  Slack,
+  Sparkles,
+} from "lucide-react";
+import { AppToast } from "@/components/ui/toast";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useToast } from "@/hooks/use-toast";
 
 type CompanyValue = {
   id: string;
@@ -23,11 +42,6 @@ type WorkspaceSettings = {
   values: CompanyValue[];
 };
 
-type ToastState = {
-  message: string;
-  type: "success" | "error";
-} | null;
-
 type ModalState =
   | { type: "workspaceName"; value: string }
   | { type: "monthlyAllowance"; value: number }
@@ -44,6 +58,45 @@ const scheduleOptions = [
 
 const emojiChoices = ["🔥", "🚀", "🤝", "🎯", "💡", "🌟", "⚡", "🧠", "🏆", "🙌"];
 
+type SettingRowProps = {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  value?: React.ReactNode;
+  onClick?: () => void;
+};
+
+function SettingRow({ icon, title, description, value, onClick }: SettingRowProps) {
+  const Comp = onClick ? "button" : "div";
+  return (
+    <Comp
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5 text-left transition-colors ${
+        onClick ? "hover:border-border-strong hover:bg-card-2" : ""
+      }`}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-card-2 text-muted">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">{title}</p>
+        {description ? (
+          <p className="truncate text-[11px] text-muted">{description}</p>
+        ) : null}
+      </div>
+      {value !== undefined ? (
+        <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted">
+          {value}
+          {onClick ? <ChevronRight size={14} /> : null}
+        </span>
+      ) : onClick ? (
+        <ChevronRight size={14} className="shrink-0 text-muted" />
+      ) : null}
+    </Comp>
+  );
+}
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -52,18 +105,16 @@ export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
-  const [toast, setToast] = useState<ToastState>(null);
-  const [oauthBanner, setOauthBanner] = useState<ToastState>(null);
+  const { toast, showToast } = useToast();
+  const [oauthBanner, setOauthBanner] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const activeValuesCount = useMemo(
     () => workspace?.values.filter((value) => value.isActive).length ?? 0,
     [workspace],
   );
-
-  const showToast = (message: string, type: "success" | "error" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const loadSettings = async () => {
     setIsLoading(true);
@@ -88,7 +139,7 @@ export default function AdminSettingsPage() {
     const slackStatus = searchParams.get("slack");
     if (!slackStatus) return;
 
-    const statusMessageMap: Record<string, ToastState> = {
+    const statusMessageMap: Record<string, { message: string; type: "success" | "error" }> = {
       connected: { type: "success", message: "Slack workspace connected successfully." },
       oauth_denied: { type: "error", message: "Slack connection was canceled." },
       missing_code: { type: "error", message: "Slack OAuth code is missing. Please try again." },
@@ -236,15 +287,19 @@ export default function AdminSettingsPage() {
 
   if (isLoading || !workspace) {
     return (
-      <section className="px-5 pb-8">
-        <header className="py-4">
-          <h1 className="text-lg font-semibold text-[--text-primary]">Settings</h1>
+      <section className="pb-10">
+        <header className="py-5">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">Workspace</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
         </header>
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} className="animate-pulse rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-              <div className="h-4 w-40 rounded bg-[--bg-card-2]" />
-              <div className="mt-2 h-3 w-24 rounded bg-[--bg-card-2]" />
+            <div
+              key={index}
+              className="rounded-[16px] border border-border bg-card p-4"
+            >
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="mt-2 h-3 w-24" />
             </div>
           ))}
         </div>
@@ -253,240 +308,251 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <section className="px-5 pb-8">
-      <header className="py-4">
-        <h1 className="text-lg font-semibold text-[--text-primary]">Settings</h1>
+    <section className="pb-10">
+      <header className="py-5">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted">Workspace</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-1 text-xs text-muted">
+          Configure how recognition works across {workspace.name}.
+        </p>
       </header>
 
-      <div className="space-y-6">
-        <div>
-          <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">General</p>
-          <div className="space-y-2">
-            <button
-              onClick={() => setModal({ type: "monthlyAllowance", value: workspace.monthlyAllowance })}
-              className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left"
-            >
-              <span className="text-sm text-[--text-primary]">Monthly coins per person</span>
-              <span className="text-sm text-[--text-secondary]">{workspace.monthlyAllowance}</span>
-            </button>
-            <button
-              onClick={() => setModal({ type: "tokenValueNaira", value: workspace.tokenValueNaira })}
-              className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left"
-            >
-              <span className="text-sm text-[--text-primary]">Token value (₦ per Spot-token)</span>
-              <span className="text-sm text-[--text-secondary]">₦{workspace.tokenValueNaira}</span>
-            </button>
-            <button
-              onClick={() => setModal({ type: "workspaceName", value: workspace.name })}
-              className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left"
-            >
-              <span className="text-sm text-[--text-primary]">Workspace name</span>
-              <span className="text-sm text-[--text-secondary]">{workspace.name}</span>
-            </button>
-          </div>
-        </div>
+      <div className="space-y-8">
+        <section className="space-y-2">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">General</h2>
+          <SettingRow
+            icon={<Coins size={15} />}
+            title="Monthly coins per person"
+            description="Refilled the 1st of each month"
+            value={<span className="font-mono">{workspace.monthlyAllowance}</span>}
+            onClick={() =>
+              setModal({ type: "monthlyAllowance", value: workspace.monthlyAllowance })
+            }
+          />
+          <SettingRow
+            icon={<Sparkles size={15} />}
+            title="Token value"
+            description="Naira per Spot Token at year-end"
+            value={<span className="font-mono">₦{workspace.tokenValueNaira}</span>}
+            onClick={() =>
+              setModal({ type: "tokenValueNaira", value: workspace.tokenValueNaira })
+            }
+          />
+          <SettingRow
+            icon={<Hash size={15} />}
+            title="Workspace name"
+            value={<span className="truncate">{workspace.name}</span>}
+            onClick={() => setModal({ type: "workspaceName", value: workspace.name })}
+          />
+        </section>
 
-        <div>
-          <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">Company Values</p>
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+              Company values
+            </h2>
+            <span className="text-[11px] text-muted">
+              {activeValuesCount} / 10 active
+            </span>
+          </div>
           <div className="space-y-2">
             {workspace.values.map((value) => (
               <div
                 key={value.id}
-                className="flex items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5"
+                className="flex items-center justify-between gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5"
               >
-                <span className="text-sm text-[--text-primary]">
-                  {value.emoji} {value.name}
+                <span className="flex min-w-0 items-center gap-2.5 text-sm text-foreground">
+                  <span className="text-base">{value.emoji}</span>
+                  <span className="truncate">{value.name}</span>
                 </span>
-                <button
+                <Chip
                   disabled={isSaving}
                   onClick={() => void toggleValue(value)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    value.isActive
-                      ? "border-[--accent-border] bg-[--accent-bg] text-[--accent]"
-                      : "border-[--border] bg-[--bg-card-2] text-[--text-secondary]"
-                  }`}
+                  selected={value.isActive}
                 >
                   {value.isActive ? "Active" : "Inactive"}
-                </button>
+                </Chip>
               </div>
             ))}
 
             <button
+              type="button"
               onClick={() => setModal({ type: "addValue", name: "", emoji: "🔥" })}
-              className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left text-sm text-[--text-primary]"
+              className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-border bg-card/40 px-4 py-3.5 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground"
             >
+              <Plus size={14} />
               Add value
             </button>
           </div>
-        </div>
+        </section>
 
-        <div>
-          <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">Slack</p>
+        <section className="space-y-2">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">Slack</h2>
           {oauthBanner ? (
             <div
-              className={`mb-2 rounded-xl border px-3 py-2 text-xs ${
+              className={`flex items-start gap-2 rounded-[14px] border px-3 py-2.5 text-xs ${
                 oauthBanner.type === "success"
-                  ? "border-[--accent-border] bg-[--accent-bg] text-[--accent]"
-                  : "border-[--error] bg-[--bg-card] text-[--text-primary]"
+                  ? "border-accent/30 bg-accent/10 text-accent"
+                  : "border-destructive/40 bg-destructive/10 text-destructive"
               }`}
             >
-              {oauthBanner.message}
+              {oauthBanner.type === "success" ? (
+                <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
+              ) : (
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+              )}
+              <span>{oauthBanner.message}</span>
             </div>
           ) : null}
           <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5">
-              <span className="text-sm text-[--text-primary]">Slack workspace</span>
-              {workspace.slackTeamId ? (
-                <span className="rounded-full border border-[--accent-border] bg-[--accent-bg] px-2.5 py-1 text-xs font-medium text-[--accent]">
-                  Connected
+            <div className="flex items-center justify-between gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-card-2 text-muted">
+                  <Slack size={15} />
                 </span>
+                <div className="leading-tight">
+                  <p className="text-sm font-medium text-foreground">Slack workspace</p>
+                  <p className="text-[11px] text-muted">Sync recognition into Slack</p>
+                </div>
+              </div>
+              {workspace.slackTeamId ? (
+                <Badge variant="accent">Connected</Badge>
               ) : (
-                <a
-                  href="/api/slack/oauth/start"
-                  className="rounded-full bg-[--text-primary] px-4 py-2 text-xs font-semibold text-[--bg-base]"
-                >
-                  Connect Slack
-                </a>
+                <Button asChild variant="outline" size="sm">
+                  <a href="/api/slack/oauth/start">Connect</a>
+                </Button>
               )}
             </div>
 
-            <button
-              onClick={() => setModal({ type: "channelId", value: workspace.targetChannelId ?? "" })}
-              className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left"
-            >
-              <span className="text-sm text-[--text-primary]">Recognition channel</span>
-              <span className="text-sm text-[--text-secondary]">
-                {workspace.targetChannelId || "Not set"}
-              </span>
-            </button>
+            <SettingRow
+              icon={<Hash size={15} />}
+              title="Recognition channel"
+              description="Where Spotcoin posts public messages"
+              value={
+                <span className="truncate">
+                  {workspace.targetChannelId || "Not set"}
+                </span>
+              }
+              onClick={() =>
+                setModal({ type: "channelId", value: workspace.targetChannelId ?? "" })
+              }
+            />
 
-            <div className="rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5">
-              <p className="mb-2 text-sm text-[--text-primary]">Recognition Monday</p>
-              <div className="flex rounded-full border border-[--border] bg-[--bg-card] p-1">
-                {scheduleOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    disabled={isSaving}
-                    onClick={() => void patchWorkspace({ recognitionSchedule: option.id })}
-                    className={`flex-1 rounded-full py-2 text-sm font-medium transition-all ${
-                      workspace.recognitionSchedule === option.id
-                        ? "bg-[--bg-overlay] text-[--text-primary]"
-                        : "text-[--text-secondary]"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setModal({ type: "timezone", value: workspace.timezone })}
-              className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left"
-            >
-              <span className="text-sm text-[--text-primary]">Timezone</span>
-              <span className="text-sm text-[--text-secondary]">{workspace.timezone}</span>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">Danger</p>
-          <button
-            onClick={() => void handleExport()}
-            className="flex w-full items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5 text-left text-sm text-[--error]"
-          >
-            Export all data
-          </button>
-        </div>
-      </div>
-
-      {modal ? (
-        <div className="fixed inset-0 z-40 bg-black/60">
-          <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl border border-[--border] bg-[--bg-overlay] p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-[--text-primary]">
-                {modal.type === "workspaceName" && "Workspace name"}
-                {modal.type === "monthlyAllowance" && "Monthly coins per person"}
-                {modal.type === "tokenValueNaira" && "Token value (₦ per Spot-token)"}
-                {modal.type === "channelId" && "Recognition channel"}
-                {modal.type === "timezone" && "Timezone"}
-                {modal.type === "addValue" && "Add company value"}
-              </h2>
-              <button onClick={() => setModal(null)} className="p-1">
-                <X size={16} className="text-[--text-secondary]" />
-              </button>
-            </div>
-
-            {modal.type === "addValue" ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {emojiChoices.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => setModal({ ...modal, emoji })}
-                      className={`rounded-xl border px-3 py-2 text-sm ${
-                        modal.emoji === emoji
-                          ? "border-[--accent-border] bg-[--accent-bg]"
-                          : "border-[--border] bg-[--bg-card]"
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  value={modal.name}
-                  onChange={(event) => setModal({ ...modal, name: event.target.value })}
-                  placeholder="Value name"
-                  className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
+            <div className="rounded-[16px] border border-border bg-card p-4">
+              <p className="text-sm font-medium text-foreground">Recognition Monday</p>
+              <p className="mt-0.5 text-[11px] text-muted">
+                When Spotcoin nudges your team to send recognition
+              </p>
+              <div className="mt-3">
+                <Segmented
+                  items={scheduleOptions.map((option) => ({
+                    id: option.id,
+                    label: option.label,
+                  }))}
+                  value={workspace.recognitionSchedule}
+                  onChange={(next) => void patchWorkspace({ recognitionSchedule: next })}
                 />
               </div>
-            ) : modal.type === "monthlyAllowance" || modal.type === "tokenValueNaira" ? (
-              <input
-                value={modal.value}
-                onChange={(event) =>
-                  setModal({
-                    ...modal,
-                    value: Math.max(1, Number(event.target.value) || 1),
-                  })
-                }
-                type="number"
-                min={1}
-                className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
-              />
-            ) : (
-              <input
-                value={modal.value}
-                onChange={(event) => setModal({ ...modal, value: event.target.value })}
-                className="w-full rounded-xl border border-[--border] bg-[--bg-input] px-4 py-3 text-sm text-[--text-primary] outline-none"
-              />
-            )}
+            </div>
 
-            <button
-              onClick={() => void saveModal()}
-              disabled={isSaving}
-              className="mt-4 w-full rounded-full bg-[--text-primary] px-5 py-2.5 text-sm font-semibold text-[--bg-base] disabled:opacity-50"
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
+            <SettingRow
+              icon={<Clock size={15} />}
+              title="Timezone"
+              description="Used for monthly reset and reminders"
+              value={<span>{workspace.timezone}</span>}
+              onClick={() => setModal({ type: "timezone", value: workspace.timezone })}
+            />
           </div>
-        </div>
-      ) : null}
+        </section>
 
-      {toast ? (
-        <div className="fixed bottom-20 left-1/2 z-50 w-[calc(100%-40px)] max-w-lg -translate-x-1/2">
-          <div
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[--accent-border] bg-[--bg-overlay] text-[--text-primary]"
-                : "border-[--error] bg-[--bg-overlay] text-[--text-primary]"
-            }`}
+        <section className="space-y-2">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-destructive">
+            Danger
+          </h2>
+          <button
+            onClick={() => void handleExport()}
+            className="flex w-full items-center justify-between gap-3 rounded-[16px] border border-destructive/30 bg-destructive/5 px-4 py-3.5 text-left text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
           >
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
+            <span>Export all data</span>
+            <ChevronRight size={14} />
+          </button>
+        </section>
+      </div>
+
+      <Sheet open={!!modal} onOpenChange={(open) => !open && setModal(null)}>
+        <SheetContent>
+          {modal ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>
+                  {modal.type === "workspaceName" && "Workspace name"}
+                  {modal.type === "monthlyAllowance" && "Monthly coins per person"}
+                  {modal.type === "tokenValueNaira" && "Token value (₦)"}
+                  {modal.type === "channelId" && "Recognition channel"}
+                  {modal.type === "timezone" && "Timezone"}
+                  {modal.type === "addValue" && "Add company value"}
+                </SheetTitle>
+              </SheetHeader>
+
+              {modal.type === "addValue" ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-muted">Emoji</label>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {emojiChoices.map((emoji) => (
+                        <button
+                          type="button"
+                          key={emoji}
+                          onClick={() => setModal({ ...modal, emoji })}
+                          className={`flex h-10 w-10 items-center justify-center rounded-[10px] border text-base transition-colors ${
+                            modal.emoji === emoji
+                              ? "border-accent/40 bg-accent/15"
+                              : "border-border bg-card hover:border-border-strong"
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted">Name</label>
+                    <Input
+                      value={modal.name}
+                      onChange={(event) => setModal({ ...modal, name: event.target.value })}
+                      placeholder="e.g. Ownership"
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+              ) : modal.type === "monthlyAllowance" || modal.type === "tokenValueNaira" ? (
+                <Input
+                  value={modal.value}
+                  onChange={(event) =>
+                    setModal({
+                      ...modal,
+                      value: Math.max(1, Number(event.target.value) || 1),
+                    })
+                  }
+                  type="number"
+                  min={1}
+                />
+              ) : (
+                <Input
+                  value={modal.value}
+                  onChange={(event) => setModal({ ...modal, value: event.target.value })}
+                />
+              )}
+
+              <Button onClick={() => void saveModal()} disabled={isSaving} className="w-full">
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+
+      <AppToast toast={toast} />
     </section>
   );
 }

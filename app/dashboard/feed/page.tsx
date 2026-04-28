@@ -1,8 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import Image from "next/image";
+import { Activity, ArrowRight } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type FeedItem = {
   id: string;
@@ -46,18 +51,6 @@ function toTimeAgo(isoDate: string) {
   return `${days}d ago`;
 }
 
-function SkeletonCard() {
-  return (
-    <div className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-      <div className="animate-pulse space-y-3">
-        <div className="h-4 w-40 rounded bg-[--bg-card-2]" />
-        <div className="h-3 w-20 rounded bg-[--bg-card-2]" />
-        <div className="h-16 w-full rounded bg-[--bg-card-2]" />
-      </div>
-    </div>
-  );
-}
-
 export default function FeedPage() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [page, setPage] = useState(1);
@@ -95,71 +88,85 @@ export default function FeedPage() {
   }, []);
 
   return (
-    <section className="px-5 pb-8">
-      <header className="flex items-center gap-3 py-4">
-        <Link href="/dashboard" aria-label="Back to dashboard">
-          <ChevronLeft size={20} className="text-[--text-primary]" />
-        </Link>
-        <h1 className="text-lg font-semibold text-[--text-primary]">Feed</h1>
-      </header>
+    <section className="pb-10">
+      <PageHeader
+        title="Feed"
+        description={total > 0 ? `${total} recognitions across the team` : "All recognitions"}
+      />
 
       {isLoading ? (
         <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <SkeletonCard key={index} />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-[16px] border border-border bg-card p-4"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="h-4 w-10" />
+              </div>
+              <Skeleton className="mt-4 h-3 w-full" />
+              <Skeleton className="mt-2 h-3 w-2/3" />
+            </div>
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="py-16 text-center">
-          <p className="text-sm text-[--text-secondary]">No recognitions yet.</p>
-          <p className="mt-1 text-xs text-[--text-tertiary]">
-            Be the first to recognize someone.
-          </p>
-        </div>
+        <EmptyState
+          icon={Activity}
+          title="No recognitions yet."
+          description="Be the first to recognize someone on your team."
+        />
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
             <article
               key={item.id}
-              className="rounded-2xl border border-[--border] bg-[--bg-card] p-4"
+              className="rounded-[16px] border border-border bg-card p-4 transition-colors hover:border-border-strong"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs text-[--text-secondary]">
-                    <span className="font-medium text-[--text-primary]">{item.sender.name}</span>
-                    {" → "}
-                    <span className="font-medium text-[--text-primary]">
-                      {item.recipient.name}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-[--text-tertiary]">
-                    {toTimeAgo(item.createdAt)}
+              <header className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar name={item.sender.name} size="sm" />
+                  <ArrowRight size={12} className="shrink-0 text-muted" />
+                  <Avatar name={item.recipient.name} size="sm" />
+                  <p className="min-w-0 truncate text-xs text-muted">
+                    <span className="font-medium text-foreground">{item.sender.name}</span>
+                    <span className="px-1 text-muted">→</span>
+                    <span className="font-medium text-foreground">{item.recipient.name}</span>
                   </p>
                 </div>
-                <p className="font-mono text-sm font-semibold text-[--text-primary]">
-                  🪙 {item.coinAmount}
-                </p>
-              </div>
+                <div className="flex items-center gap-1 rounded-full border border-border bg-card-2 px-2 py-0.5 font-mono text-xs font-semibold text-foreground">
+                  <Image src="/logomark.png" alt="Spotcoin" width={11} height={11} />
+                  {item.coinAmount}
+                </div>
+              </header>
 
-              <p className="mt-3 text-sm leading-relaxed text-[--text-primary]">"{item.message}"</p>
+              <p className="mt-3 text-sm leading-relaxed text-foreground/90">
+                &ldquo;{item.message}&rdquo;
+              </p>
 
-              <div className="mt-3">
-                <span className="rounded-full border border-[--border] bg-[--bg-card-2] px-2 py-0.5 text-[10px] font-medium text-[--text-secondary]">
-                  {item.value.emoji} {item.value.name}
-                </span>
-              </div>
+              <footer className="mt-3 flex items-center justify-between gap-2">
+                <Badge variant="neutral">
+                  <span>{item.value.emoji}</span>
+                  <span>{item.value.name}</span>
+                </Badge>
+                <span className="text-[11px] text-muted">{toTimeAgo(item.createdAt)}</span>
+              </footer>
             </article>
           ))}
         </div>
       )}
 
       {!isLoading && hasMore ? (
-        <div className="mt-4 flex justify-center">
+        <div className="mt-6 flex justify-center">
           <button
             type="button"
             onClick={() => void loadPage(page + 1, true)}
             disabled={isLoadingMore}
-            className="rounded-full border border-[--border-mid] px-4 py-2 text-sm font-medium text-[--text-primary] transition-opacity active:opacity-70 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-border bg-card px-4 py-2 text-xs font-medium text-foreground transition-colors hover:border-border-strong disabled:opacity-60"
           >
             {isLoadingMore ? "Loading..." : "Load more"}
           </button>

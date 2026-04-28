@@ -1,8 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Wallet as WalletIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ListRow } from "@/components/ui/list-row";
+import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type MeResponse = {
   data: {
@@ -93,54 +98,51 @@ export default function WalletPage() {
   }, [activeFilter, history, userId]);
 
   return (
-    <section className="px-5 pb-8">
-      <header className="flex items-center gap-3 py-4">
-        <Link href="/dashboard" aria-label="Back to dashboard">
-          <ChevronLeft size={20} className="text-[--text-primary]" />
-        </Link>
-        <h1 className="text-lg font-semibold text-[--text-primary]">My Wallet</h1>
-      </header>
+    <section className="pb-10">
+      <PageHeader title="My Wallet" description="Coins, tokens and history" />
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">
+        <div className="rounded-[20px] border border-border bg-card p-5">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
             Coins to Give
           </p>
-          <p className="mt-1 font-mono text-4xl font-bold text-[--text-primary]">{coinsToGive}</p>
-          <p className="mt-1 text-xs text-[--text-tertiary]">Resets 1st of month</p>
+          <p className="mt-2 font-mono text-[40px] font-bold leading-none tracking-tight text-foreground">
+            {coinsToGive}
+          </p>
+          <p className="mt-2 text-[11px] text-muted">Resets 1st of month</p>
         </div>
 
-        <div className="rounded-2xl border border-[--border] bg-[--bg-card] p-4">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">
-            Spot Tokens Earned
+        <div className="rounded-[20px] border border-border bg-card p-5">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted">
+            Spot Tokens
           </p>
-          <p className="mt-1 font-mono text-4xl font-bold text-[--accent]">{spotTokensEarned}</p>
-          <p className="mt-1 text-xs text-[--text-secondary]">≈ {formatNaira(projectedValue)} at year-end</p>
+          <p className="mt-2 font-mono text-[40px] font-bold leading-none tracking-tight text-accent">
+            {spotTokensEarned}
+          </p>
+          <p className="mt-2 text-[11px] text-muted">≈ {formatNaira(projectedValue)}</p>
         </div>
       </div>
 
-      <div className="mt-6">
-        <p className="mb-2 text-[11px] uppercase tracking-[0.08em] text-[--text-secondary]">History</p>
+      <div className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+            History
+          </h2>
+          {history.length > 0 ? (
+            <span className="text-[11px] text-muted">{history.length} entries</span>
+          ) : null}
+        </div>
 
-        <div className="mb-3 flex rounded-full border border-[--border] bg-[--bg-card] p-1">
-          {[
-            { id: "all", label: "All" },
-            { id: "received", label: "Received" },
-            { id: "sent", label: "Sent" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveFilter(tab.id as FilterTab)}
-              className={`flex-1 rounded-full py-2 text-sm font-medium transition-all ${
-                activeFilter === tab.id
-                  ? "bg-[--bg-overlay] text-[--text-primary]"
-                  : "text-[--text-secondary]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="mb-3">
+          <Segmented
+            items={[
+              { id: "all", label: "All" },
+              { id: "received", label: "Received" },
+              { id: "sent", label: "Sent" },
+            ]}
+            value={activeFilter}
+            onChange={(next) => setActiveFilter(next as FilterTab)}
+          />
         </div>
 
         {isLoading ? (
@@ -148,17 +150,19 @@ export default function WalletPage() {
             {Array.from({ length: 5 }).map((_, index) => (
               <div
                 key={index}
-                className="animate-pulse rounded-2xl border border-[--border] bg-[--bg-card] p-4"
+                className="rounded-[16px] border border-border bg-card p-4"
               >
-                <div className="h-4 w-40 rounded bg-[--bg-card-2]" />
-                <div className="mt-2 h-3 w-24 rounded bg-[--bg-card-2]" />
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="mt-2 h-3 w-24" />
               </div>
             ))}
           </div>
         ) : filteredHistory.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-sm text-[--text-secondary]">No recognition history yet.</p>
-          </div>
+          <EmptyState
+            icon={WalletIcon}
+            title="No recognition history yet."
+            description="Send or receive your first Spotcoin to fill this in."
+          />
         ) : (
           <div className="space-y-2">
             {filteredHistory.map((item) => {
@@ -172,31 +176,27 @@ export default function WalletPage() {
                   : `${item.sender.name} → ${item.recipient.name} · ${item.value.name}`;
 
               return (
-                <div
+                <ListRow
                   key={item.id}
-                  className="flex items-center justify-between rounded-2xl border border-[--border] bg-[--bg-card] px-4 py-3.5"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5">
-                      {isReceived ? (
-                        <ArrowDownLeft size={16} className="text-[--accent]" />
-                      ) : (
-                        <ArrowUpRight size={16} className="text-[--text-secondary]" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-sm text-[--text-primary]">{description}</p>
-                      <p className="mt-0.5 text-xs text-[--text-tertiary]">{toDateLabel(item.createdAt)}</p>
-                    </div>
-                  </div>
-                  <p
-                    className={`font-mono text-sm font-semibold ${
-                      isReceived ? "text-[--accent]" : "text-[--text-secondary]"
-                    }`}
-                  >
-                    {amountText}
-                  </p>
-                </div>
+                  left={
+                    <span
+                      className={
+                        isReceived
+                          ? "flex h-9 w-9 items-center justify-center rounded-[10px] border border-accent/30 bg-accent/10 text-accent"
+                          : "flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-card-2 text-muted"
+                      }
+                    >
+                      {isReceived ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}
+                    </span>
+                  }
+                  title={description}
+                  description={toDateLabel(item.createdAt)}
+                  right={
+                    <Badge variant={isReceived ? "accent" : "neutral"} className="font-mono">
+                      {amountText}
+                    </Badge>
+                  }
+                />
               );
             })}
           </div>

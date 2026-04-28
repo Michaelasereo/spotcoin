@@ -7,7 +7,7 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     clearMocks: true,
     mockReset: true,
-    include: ["lib/**/*.test.ts", "netlify/functions/**/*.test.ts", "app/api/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "tests/netlify/**/*.test.ts", "app/api/**/*.test.ts"],
     exclude: ["tests/e2e/**"],
   },
   resolve: {
