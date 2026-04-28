@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import { positionService } from "@/lib/services/positionService";
 
 async function assertAdminAccess(adminId: string, workspaceId: string) {
   const admin = await prisma.user.findFirst({
@@ -64,13 +65,19 @@ export const workspaceService = {
   async updateWorkspace(adminId: string, workspaceId: string, data: WorkspaceUpdateInput) {
     await assertAdminAccess(adminId, workspaceId);
 
-    return prisma.workspace.update({
+    const updated = await prisma.workspace.update({
       where: { id: workspaceId },
       data,
       include: {
         values: true,
       },
     });
+
+    if (data.onboardingComplete === true) {
+      await positionService.ensureDefaultPositions(workspaceId);
+    }
+
+    return updated;
   },
 
   async createValue(adminId: string, workspaceId: string, data: ValueInput) {

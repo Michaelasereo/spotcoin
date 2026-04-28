@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
+  Briefcase,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ChevronRight,
   Clock,
   Coins,
@@ -30,6 +33,18 @@ type CompanyValue = {
   isActive: boolean;
 };
 
+type Position = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+type AdminUser = {
+  id: string;
+  position: { id: string; name: string } | null;
+};
+
 type WorkspaceSettings = {
   id: string;
   name: string;
@@ -49,6 +64,8 @@ type ModalState =
   | { type: "channelId"; value: string }
   | { type: "timezone"; value: string }
   | { type: "addValue"; name: string; emoji: string }
+  | { type: "addPosition"; name: string }
+  | { type: "editPosition"; id: string; name: string }
   | null;
 
 const scheduleOptions = [
@@ -102,6 +119,9 @@ export default function AdminSettingsPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [workspace, setWorkspace] = useState<WorkspaceSettings | null>(null);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [positionsExpanded, setPositionsExpanded] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
@@ -116,12 +136,36 @@ export default function AdminSettingsPage() {
     [workspace],
   );
 
+  const loadPositions = async () => {
+    const response = await fetch("/api/admin/positions", { cache: "no-store" });
+    const payload = (await response.json()) as { data?: Position[]; error?: string };
+    if (!response.ok) {
+      showToast(payload.error ?? "Failed to load positions", "error");
+      return;
+    }
+    setPositions(payload.data ?? []);
+  };
+
+  const loadUsers = async () => {
+    const response = await fetch("/api/admin/users", { cache: "no-store" });
+    const payload = (await response.json()) as { data?: AdminUser[]; error?: string };
+    if (!response.ok) {
+      showToast(payload.error ?? "Failed to load users", "error");
+      return;
+    }
+    setUsers(payload.data ?? []);
+  };
+
   const loadSettings = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/admin/workspace", { cache: "no-store" });
-      const payload = (await response.json()) as { data?: WorkspaceSettings; error?: string };
-      if (!response.ok || !payload.data) {
+      const [workspaceRes] = await Promise.all([
+        fetch("/api/admin/workspace", { cache: "no-store" }),
+        loadPositions(),
+        loadUsers(),
+      ]);
+      const payload = (await workspaceRes.json()) as { data?: WorkspaceSettings; error?: string };
+      if (!workspaceRes.ok || !payload.data) {
         showToast(payload.error ?? "Failed to load workspace settings", "error");
         return;
       }
@@ -207,6 +251,26 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const togglePosition = async (position: Position) => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/admin/positions/${position.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ isActive: !position.isActive }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        showToast(payload.error ?? "Unable to update position", "error");
+        return;
+      }
+      await loadPositions();
+      showToast("Position updated");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const saveModal = async () => {
     if (!workspace || !modal) return;
 
@@ -266,6 +330,52 @@ export default function AdminSettingsPage() {
       } finally {
         setIsSaving(false);
       }
+      return;
+    }
+
+    if (modal.type === "addPosition") {
+      if (!modal.name.trim()) return;
+      setIsSaving(true);
+      try {
+        const response = await fetch("/api/admin/positions", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: modal.name.trim() }),
+        });
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          showToast(payload.error ?? "Unable to add position", "error");
+          return;
+        }
+        setModal(null);
+        await Promise.all([loadPositions(), loadUsers()]);
+        showToast("Position added");
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
+    if (modal.type === "editPosition") {
+      if (!modal.name.trim()) return;
+      setIsSaving(true);
+      try {
+        const response = await fetch(`/api/admin/positions/${modal.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: modal.name.trim() }),
+        });
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          showToast(payload.error ?? "Unable to rename position", "error");
+          return;
+        }
+        setModal(null);
+        await Promise.all([loadPositions(), loadUsers()]);
+        showToast("Position renamed");
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -306,6 +416,13 @@ export default function AdminSettingsPage() {
       </section>
     );
   }
+
+  const userCountByPositionId = users.reduce<Record<string, number>>((acc, user) => {
+    if (user.position?.id) {
+      acc[user.position.id] = (acc[user.position.id] ?? 0) + 1;
+    }
+    return acc;
+  }, {});
 
   return (
     <section className="pb-10">
@@ -384,6 +501,75 @@ export default function AdminSettingsPage() {
               Add value
             </button>
           </div>
+        </section>
+
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+              Positions
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted">
+                {positions.filter((position) => position.isActive).length} active
+              </span>
+              <button
+                type="button"
+                onClick={() => setPositionsExpanded((current) => !current)}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card-2 px-2 py-1 text-[11px] text-muted transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                {positionsExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                {positionsExpanded ? "Collapse" : "Expand"}
+              </button>
+            </div>
+          </div>
+          {positionsExpanded ? (
+            <div className="space-y-2">
+            {positions.length === 0 ? (
+              <p className="rounded-[16px] border border-dashed border-border bg-card/40 px-4 py-3.5 text-xs text-muted">
+                No positions yet. Add the first one below.
+              </p>
+            ) : (
+              positions.map((position) => (
+                <div
+                  key={position.id}
+                  className="flex items-center justify-between gap-3 rounded-[16px] border border-border bg-card px-4 py-3.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setModal({ type: "editPosition", id: position.id, name: position.name })}
+                    className="flex min-w-0 items-center gap-2.5 text-left text-sm text-foreground"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-border bg-card-2 text-muted">
+                      <Briefcase size={13} />
+                    </span>
+                    <span className="truncate">{position.name}</span>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full border border-border bg-card-2 px-2 py-0.5 text-[11px] text-muted">
+                      {userCountByPositionId[position.id] ?? 0} users
+                    </span>
+                    <Chip
+                      disabled={isSaving}
+                      onClick={() => void togglePosition(position)}
+                      selected={position.isActive}
+                    >
+                      {position.isActive ? "Active" : "Inactive"}
+                    </Chip>
+                  </div>
+                </div>
+              ))
+            )}
+
+            <button
+              type="button"
+              onClick={() => setModal({ type: "addPosition", name: "" })}
+              className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-border bg-card/40 px-4 py-3.5 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              <Plus size={14} />
+              Add position
+            </button>
+            </div>
+          ) : null}
         </section>
 
         <section className="space-y-2">
@@ -491,7 +677,12 @@ export default function AdminSettingsPage() {
                   {modal.type === "channelId" && "Recognition channel"}
                   {modal.type === "timezone" && "Timezone"}
                   {modal.type === "addValue" && "Add company value"}
+                  {modal.type === "addPosition" && "Add position"}
+                  {modal.type === "editPosition" && "Edit position"}
                 </SheetTitle>
+                {modal.type === "editPosition" ? (
+                  <SheetDescription>Rename this position for your workspace.</SheetDescription>
+                ) : null}
               </SheetHeader>
 
               {modal.type === "addValue" ? (
@@ -524,6 +715,26 @@ export default function AdminSettingsPage() {
                       className="mt-2"
                     />
                   </div>
+                </div>
+              ) : modal.type === "addPosition" ? (
+                <div>
+                  <label className="text-xs font-medium text-muted">Position name</label>
+                  <Input
+                    value={modal.name}
+                    onChange={(event) => setModal({ ...modal, name: event.target.value })}
+                    placeholder="e.g. Frontend Lead"
+                    className="mt-2"
+                  />
+                </div>
+              ) : modal.type === "editPosition" ? (
+                <div>
+                  <label className="text-xs font-medium text-muted">Position name</label>
+                  <Input
+                    value={modal.name}
+                    onChange={(event) => setModal({ ...modal, name: event.target.value })}
+                    placeholder="e.g. Frontend Lead"
+                    className="mt-2"
+                  />
                 </div>
               ) : modal.type === "monthlyAllowance" || modal.type === "tokenValueNaira" ? (
                 <Input

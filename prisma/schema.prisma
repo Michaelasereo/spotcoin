@@ -46,6 +46,7 @@ model Workspace {
   createdAt           DateTime @default(now())
   users               User[]
   values              CompanyValue[]
+  positions           Position[]
   recognitions        Recognition[]
   payoutWindows       PayoutWindow[]
 }
@@ -60,6 +61,8 @@ model User {
   workspaceId          String
   workspace            Workspace         @relation(fields: [workspaceId], references: [id])
   slackUserId          String?
+  positionId           String?
+  position             Position?         @relation(fields: [positionId], references: [id])
   coinsToGive          Int               @default(5)
   spotTokensEarned     Int               @default(0)
   payoutStatus         PayoutStatus      @default(PENDING)
@@ -72,6 +75,7 @@ model User {
   openedPayoutWindows  PayoutWindow[]    @relation("PayoutWindowOpenedBy")
 
   @@index([workspaceId])
+  @@index([positionId])
 }
 
 model CompanyValue {
@@ -83,6 +87,20 @@ model CompanyValue {
   isActive     Boolean       @default(true)
   recognitions Recognition[]
 
+  @@index([workspaceId])
+}
+
+model Position {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  name        String
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  users       User[]
+
+  @@unique([workspaceId, name])
   @@index([workspaceId])
 }
 

@@ -23,6 +23,45 @@ function loadEnvLocal() {
   }
 }
 
+const DEFAULT_POSITIONS = [
+  "Head of Product",
+  "Head of Engineering",
+  "Frontend Lead",
+  "Backend Lead",
+  "Frontend Developer",
+  "Backend Developer",
+  "Product Designer",
+  "Head of Operations",
+  "Operations",
+  "Marketing",
+  "Product Design Intern",
+  "Intern",
+];
+
+async function ensureDefaultPositions(prisma, workspaceId) {
+  const existing = await prisma.position.findMany({
+    where: { workspaceId },
+    select: { name: true },
+  });
+  const existingNames = new Set(existing.map((item) => item.name.toLowerCase()));
+
+  const toCreate = DEFAULT_POSITIONS
+    .map((name, index) => ({ name, sortOrder: index + 1 }))
+    .filter((item) => !existingNames.has(item.name.toLowerCase()));
+
+  if (toCreate.length === 0) return;
+
+  await prisma.position.createMany({
+    data: toCreate.map((item) => ({
+      workspaceId,
+      name: item.name,
+      sortOrder: item.sortOrder,
+      isActive: true,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 async function main() {
   loadEnvLocal();
 
@@ -44,6 +83,8 @@ async function main() {
         },
       });
     }
+
+    await ensureDefaultPositions(prisma, workspace.id);
 
     const upsertUser = (email, name, role) =>
       prisma.user.upsert({

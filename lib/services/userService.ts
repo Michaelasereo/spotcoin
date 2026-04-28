@@ -41,6 +41,9 @@ export const userService = {
         spotTokensEarned: true,
         lastActiveAt: true,
         deletedAt: true,
+        position: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });

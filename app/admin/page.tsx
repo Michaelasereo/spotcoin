@@ -15,6 +15,12 @@ import { useToast } from "@/hooks/use-toast";
 
 type Role = "EMPLOYEE" | "MANAGER" | "ADMIN";
 
+type Position = {
+  id: string;
+  name: string;
+  isActive: boolean;
+};
+
 type AdminUser = {
   id: string;
   name: string;
@@ -25,6 +31,7 @@ type AdminUser = {
   spotTokensEarned: number;
   lastActiveAt: string | null;
   deletedAt: string | null;
+  position: { id: string; name: string } | null;
 };
 
 function formatLastActive(dateValue: string | null) {
@@ -44,6 +51,7 @@ const roleVariant: Record<Role, "neutral" | "accent" | "outline"> = {
 
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -56,6 +64,9 @@ export default function AdminPage() {
   const [roleUser, setRoleUser] = useState<AdminUser | null>(null);
   const [roleValue, setRoleValue] = useState<Role>("EMPLOYEE");
 
+  const [positionUser, setPositionUser] = useState<AdminUser | null>(null);
+  const [positionValue, setPositionValue] = useState<string>("");
+
   const [deactivateUser, setDeactivateUser] = useState<AdminUser | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast, showToast } = useToast();
@@ -63,16 +74,27 @@ export default function AdminPage() {
   const memberCount = useMemo(() => users.filter((user) => !user.deletedAt).length, [users]);
   const adminCount = useMemo(() => users.filter((user) => user.role === "ADMIN").length, [users]);
 
+  const activePositions = useMemo(
+    () => positions.filter((position) => position.isActive),
+    [positions],
+  );
+
   const loadUsers = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/admin/users", { cache: "no-store" });
-      const payload = (await response.json()) as { data?: AdminUser[]; error?: string };
-      if (!response.ok) {
-        showToast(payload.error ?? "Failed to load users", "error");
+      const [usersRes, positionsRes] = await Promise.all([
+        fetch("/api/admin/users", { cache: "no-store" }),
+        fetch("/api/admin/positions", { cache: "no-store" }),
+      ]);
+      const usersPayload = (await usersRes.json()) as { data?: AdminUser[]; error?: string };
+      const positionsPayload = (await positionsRes.json()) as { data?: Position[]; error?: string };
+
+      if (!usersRes.ok) {
+        showToast(usersPayload.error ?? "Failed to load users", "error");
         return;
       }
-      setUsers(payload.data ?? []);
+      setUsers(usersPayload.data ?? []);
+      setPositions(positionsPayload.data ?? []);
     } finally {
       setIsLoading(false);
     }
@@ -151,6 +173,29 @@ export default function AdminPage() {
     }
   };
 
+  const handlePositionChange = async () => {
+    if (!positionUser) return;
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/admin/users/${positionUser.id}/position`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ positionId: positionValue || null }),
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        showToast(payload.error ?? "Position update failed", "error");
+        return;
+      }
+      setPositionUser(null);
+      setPositionValue("");
+      showToast("Position updated");
+      await loadUsers();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDeactivate = async () => {
     if (!deactivateUser) return;
     setIsSaving(true);
@@ -175,6 +220,8 @@ export default function AdminPage() {
     setShowInviteModal(false);
     setBonusUser(null);
     setRoleUser(null);
+    setPositionUser(null);
+    setPositionValue("");
     setDeactivateUser(null);
   };
 
@@ -243,6 +290,7 @@ export default function AdminPage() {
                   ) : null}
                 </p>
                 <p className="truncate text-xs text-muted">
+                  {user.position?.name ? `${user.position.name} · ` : ""}
                   {user.email} · Last active {formatLastActive(user.lastActiveAt)}
                 </p>
               </div>
@@ -270,6 +318,14 @@ export default function AdminPage() {
                     Change role
                   </DropdownItem>
                   <DropdownItem
+                    onClick={() => {
+                      setPositionUser(user);
+                      setPositionValue(user.position?.id ?? "");
+                    }}
+                  >
+                    Change position
+                  </DropdownItem>
+                  <DropdownItem
                     className="text-destructive data-[highlighted]:bg-destructive/10"
                     onClick={() => setDeactivateUser(user)}
                   >
@@ -283,7 +339,7 @@ export default function AdminPage() {
       )}
 
       <Sheet
-        open={showInviteModal || !!bonusUser || !!roleUser || !!deactivateUser}
+        open={showInviteModal || !!bonusUser || !!roleUser || !!positionUser || !!deactivateUser}
         onOpenChange={(open) => {
           if (!open) closeAllModals();
         }}
@@ -361,6 +417,40 @@ export default function AdminPage() {
               </select>
               <Button onClick={handleRoleChange} disabled={isSaving} className="w-full">
                 {isSaving ? "Saving..." : "Save role"}
+              </Button>
+            </div>
+          ) : null}
+
+          {positionUser ? (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Change position</SheetTitle>
+                <SheetDescription>For {positionUser.name}</SheetDescription>
+              </SheetHeader>
+              {activePositions.length === 0 ? (
+                <p className="text-xs text-muted">
+                  No positions configured yet. Add some in Settings first.
+                </p>
+              ) : (
+                <select
+                  value={positionValue}
+                  onChange={(event) => setPositionValue(event.target.value)}
+                  className="h-12 w-full rounded-[12px] border border-border bg-input px-4 text-sm text-foreground outline-none transition-colors focus:border-border-strong"
+                >
+                  <option value="">None</option>
+                  {activePositions.map((position) => (
+                    <option key={position.id} value={position.id}>
+                      {position.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <Button
+                onClick={handlePositionChange}
+                disabled={isSaving}
+                className="w-full"
+              >
+                {isSaving ? "Saving..." : "Save position"}
               </Button>
             </div>
           ) : null}

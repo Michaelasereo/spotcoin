@@ -340,7 +340,8 @@ export default function AdminOnboardingPage() {
               Who&apos;s on your team?
             </h2>
             <p className="mt-2 text-sm text-muted">
-              Add one email per line (or comma-separated) and send invites.
+              Add one email per line (or comma-separated) and send invites. Your team can pick a
+              position later in Settings.
             </p>
           </div>
 
