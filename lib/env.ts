@@ -13,6 +13,7 @@ const envSchema = z.object({
   SLACK_CLIENT_SECRET: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   REDIS_URL: z.string().optional(),
+  NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().optional(),
 });
 
 const result = envSchema.safeParse(process.env);

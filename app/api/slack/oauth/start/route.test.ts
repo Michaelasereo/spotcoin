@@ -20,7 +20,7 @@ describe("Slack OAuth start route", () => {
     vi.clearAllMocks();
   });
 
-  it("redirects unauthenticated users to login", async () => {
+  it("redirects unauthenticated users to login with return path for Slack", async () => {
     const { auth } = await import("@/lib/auth");
     vi.mocked(auth).mockResolvedValue(null as never);
 
@@ -28,7 +28,27 @@ describe("Slack OAuth start route", () => {
     const response = await GET();
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("http://localhost:3000/login");
+    const location = response.headers.get("location");
+    expect(location).toBe(
+      "http://localhost:3000/login?redirect=%2Fapi%2Fslack%2Foauth%2Fstart",
+    );
+  });
+
+  it("redirects non-admin users to the dashboard", async () => {
+    const { auth } = await import("@/lib/auth");
+    vi.mocked(auth).mockResolvedValue({
+      user: {
+        id: "u1",
+        role: "EMPLOYEE",
+        workspaceId: "ws_1",
+      },
+    } as never);
+
+    const { GET } = await import("./route");
+    const response = await GET();
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/dashboard");
   });
 
   it("redirects admins to Slack authorize URL with signed state", async () => {

@@ -73,9 +73,22 @@ model User {
   receivedRecognitions Recognition[]     @relation("ReceivedRecognitions")
   coinTransactions     CoinTransaction[]
   openedPayoutWindows  PayoutWindow[]    @relation("PayoutWindowOpenedBy")
+  passwordResetTokens  PasswordResetToken[]
 
   @@index([workspaceId])
   @@index([positionId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model CompanyValue {

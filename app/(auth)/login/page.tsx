@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 
-export default function LoginPage() {
+import { safeInternalPath } from "@/lib/safeRedirect";
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const passwordUpdated = searchParams.get("reset") === "1";
+  const redirectAfterLogin = safeInternalPath(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,8 +43,21 @@ export default function LoginPage() {
       }
 
       const session = await getSession();
-      const destination = session?.user?.role === "ADMIN" ? "/admin" : "/dashboard";
-      router.push(destination);
+      const role = session?.user?.role;
+      const defaultDestination = role === "ADMIN" ? "/admin" : "/dashboard";
+
+      if (redirectAfterLogin) {
+        if (redirectAfterLogin.startsWith("/api/slack") && role !== "ADMIN") {
+          router.push(defaultDestination);
+          setLoading(false);
+          return;
+        }
+        router.push(redirectAfterLogin);
+        setLoading(false);
+        return;
+      }
+
+      router.push(defaultDestination);
     } catch {
       setError("Invalid email or password.");
       setLoading(false);
@@ -173,6 +192,23 @@ export default function LoginPage() {
             Enter your work email to sign in to your Spotcoin account.
           </p>
 
+          {passwordUpdated ? (
+            <div
+              style={{
+                marginBottom: 16,
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.22)",
+                borderRadius: 10,
+                padding: "10px 14px",
+                fontSize: 13,
+                color: "#86efac",
+                lineHeight: 1.5,
+              }}
+            >
+              Password updated. Sign in with your new password.
+            </div>
+          ) : null}
+
           <label
             htmlFor="email"
             style={{
@@ -227,6 +263,19 @@ export default function LoginPage() {
               transition: "border-color 0.15s, background 0.15s",
             }}
           />
+
+          <div style={{ textAlign: "right", marginBottom: 16 }}>
+            <Link
+              href="/forgot-password"
+              style={{
+                fontSize: 13,
+                color: "#888",
+                textDecoration: "none",
+              }}
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           {error ? (
             <div
@@ -320,5 +369,27 @@ export default function LoginPage() {
         }
       `}</style>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          style={{
+            minHeight: "100vh",
+            background: "#0d0d0d",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span style={{ color: "#555", fontSize: 14 }}>Loading…</span>
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

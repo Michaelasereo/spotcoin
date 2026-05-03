@@ -6,8 +6,14 @@ const scopes = ["commands", "chat:write", "chat:write.public", "users:read", "us
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user?.id || !session.user.workspaceId || session.user.role !== "ADMIN") {
-    return Response.redirect(`${env.NEXT_PUBLIC_APP_URL}/login`, 302);
+  if (!session?.user?.id || !session.user.workspaceId) {
+    const login = new URL(`${env.NEXT_PUBLIC_APP_URL}/login`);
+    login.searchParams.set("redirect", "/api/slack/oauth/start");
+    return Response.redirect(login.toString(), 302);
+  }
+
+  if (session.user.role !== "ADMIN") {
+    return Response.redirect(`${env.NEXT_PUBLIC_APP_URL}/dashboard`, 302);
   }
 
   if (!env.SLACK_CLIENT_ID) {
