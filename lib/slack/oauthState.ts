@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { env } from "@/lib/env";
 
-const STATE_TTL_MS = 10 * 60 * 1000;
+/** Allow time to complete Slack’s OAuth screens (App Directory / multi-step). */
+const STATE_TTL_MS = 30 * 60 * 1000;
 
 type SlackOAuthStatePayload = {
   userId: string;

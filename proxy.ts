@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 export function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  requestHeaders.set("x-search", request.nextUrl.search);
 
   if (process.env.NODE_ENV !== "production") {
     return NextResponse.next({

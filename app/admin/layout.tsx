@@ -10,10 +10,12 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  const pathname = (await headers()).get("x-pathname") ?? "";
+  const headerList = await headers();
+  const pathname = headerList.get("x-pathname") ?? "";
+  const search = headerList.get("x-search") ?? "";
 
   if (!session?.user?.id) {
-    redirect("/login");
+    redirect(`/login${search}`);
   }
 
   if (session.user.role !== "ADMIN") {

@@ -8,11 +8,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 import { safeInternalPath } from "@/lib/safeRedirect";
+import { getSlackOAuthLoginMessage } from "@/lib/slackOAuthLoginMessages";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const passwordUpdated = searchParams.get("reset") === "1";
+  const slackOAuthStatus = searchParams.get("slack");
+  const slackOAuthMessage = getSlackOAuthLoginMessage(slackOAuthStatus);
   const redirectAfterLogin = safeInternalPath(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -206,6 +209,27 @@ function LoginForm() {
               }}
             >
               Password updated. Sign in with your new password.
+            </div>
+          ) : null}
+
+          {slackOAuthMessage ? (
+            <div
+              role="alert"
+              style={{
+                marginBottom: 16,
+                background: slackOAuthStatus === "connected" ? "rgba(34,197,94,0.08)" : "rgba(245,158,11,0.08)",
+                border:
+                  slackOAuthStatus === "connected"
+                    ? "1px solid rgba(34,197,94,0.22)"
+                    : "1px solid rgba(245,158,11,0.25)",
+                borderRadius: 10,
+                padding: "10px 14px",
+                fontSize: 13,
+                color: slackOAuthStatus === "connected" ? "#86efac" : "#fcd34d",
+                lineHeight: 1.55,
+              }}
+            >
+              {slackOAuthMessage}
             </div>
           ) : null}
 
