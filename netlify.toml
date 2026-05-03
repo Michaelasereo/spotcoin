@@ -1,0 +1,18 @@
+# Secrets and URLs: set in Netlify UI (DATABASE_URL, DIRECT_URL, NEXTAUTH_*, etc.)
+
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  directory = "netlify/functions"
+  # Prisma engines must ship in the Lambda bundle (especially when bundling traces a subset of node_modules).
+  included_files = [
+    "node_modules/.prisma/client/**",
+    "node_modules/@prisma/client/**",
+  ]
