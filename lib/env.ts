@@ -1,19 +1,28 @@
 import { z } from "zod";
 
+/** Netlify often stores “unset” optional vars as empty strings — treat those as undefined. */
+function emptyToUndefined(val: unknown) {
+  if (val === "" || val === null) return undefined;
+  return val;
+}
+
+const optionalString = z.preprocess(emptyToUndefined, z.string().min(1).optional());
+const optionalEmail = z.preprocess(emptyToUndefined, z.string().email().optional());
+
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  DIRECT_URL: z.string().optional(),
+  DIRECT_URL: optionalString,
   NEXTAUTH_SECRET: z.string().min(1),
   NEXTAUTH_URL: z.string().url(),
   SLACK_SIGNING_SECRET: z.string().min(1),
   SLACK_STATE_SECRET: z.string().min(1),
   ENCRYPTION_KEY: z.string().min(32),
   NEXT_PUBLIC_APP_URL: z.string().url(),
-  SLACK_CLIENT_ID: z.string().optional(),
-  SLACK_CLIENT_SECRET: z.string().optional(),
-  RESEND_API_KEY: z.string().optional(),
-  REDIS_URL: z.string().optional(),
-  NEXT_PUBLIC_SUPPORT_EMAIL: z.string().email().optional(),
+  SLACK_CLIENT_ID: optionalString,
+  SLACK_CLIENT_SECRET: optionalString,
+  RESEND_API_KEY: optionalString,
+  REDIS_URL: optionalString,
+  NEXT_PUBLIC_SUPPORT_EMAIL: optionalEmail,
 });
 
 const result = envSchema.safeParse(process.env);
