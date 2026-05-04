@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { publicFeedDisplayName } from "@/lib/publicDisplayName";
 import { buildRecognitionModal } from "@/lib/slack/messageBuilder";
 import { getTokenForTeam } from "@/lib/slack/tokenStore";
 import { recognitionService } from "@/lib/services/recognitionService";
@@ -52,7 +53,7 @@ async function handleSubmitRecognition(payload: any) {
 
   const sender = await prisma.user.findFirst({
     where: { workspaceId: workspace.id, slackUserId: senderSlackId, deletedAt: null },
-    select: { id: true, name: true },
+    select: { id: true, name: true, username: true, email: true },
   });
   if (!sender) return;
 
@@ -64,7 +65,7 @@ async function handleSubmitRecognition(payload: any) {
 
   const recipient = await prisma.user.findFirst({
     where: { workspaceId: workspace.id, slackUserId: recipientSlackId, deletedAt: null },
-    select: { id: true, name: true, slackUserId: true },
+    select: { id: true, name: true, username: true, email: true, slackUserId: true },
   });
   if (!recipient) return;
 
@@ -82,11 +83,19 @@ async function handleSubmitRecognition(payload: any) {
   });
   if (!value) return;
 
-  await sendPublicPost(recognition, sender, recipient, value, {
+  const senderForSlack = {
+    name: publicFeedDisplayName({ username: sender.username, email: sender.email }),
+  };
+  const recipientForSlack = {
+    name: publicFeedDisplayName({ username: recipient.username, email: recipient.email }),
+    slackUserId: recipient.slackUserId,
+  };
+
+  await sendPublicPost(recognition, senderForSlack, recipientForSlack, value, {
     slackTeamId: teamId,
     targetChannelId: workspace.targetChannelId,
   });
-  await sendRecipientDM(recognition, sender, recipient, value, {
+  await sendRecipientDM(recognition, senderForSlack, recipientForSlack, value, {
     slackTeamId: teamId,
     targetChannelId: workspace.targetChannelId,
   });

@@ -10,6 +10,7 @@ export type CreatePollInput = {
   startsAt: Date;
   endsAt: Date;
   resultVisibility: PollResultVisibility;
+  votesAnonymous: boolean;
   options: { label: string; optionUserId?: string | null; sortOrder: number }[];
 };
 
@@ -84,6 +85,7 @@ function mapPollToDto(
     closedAt: poll.closedAt?.toISOString() ?? null,
     resultVisibility: poll.resultVisibility,
     resultsVisible: poll.resultsVisible,
+    votesAnonymous: poll.votesAnonymous,
     resultsEffectiveVisible: effectiveVisible,
     votingOpen: open,
     createdBy: poll.createdBy,
@@ -145,6 +147,7 @@ export const pollService = {
           startsAt: input.startsAt,
           endsAt: input.endsAt,
           resultVisibility: input.resultVisibility,
+          votesAnonymous: input.votesAnonymous,
         },
       });
 

@@ -73,6 +73,7 @@ model User {
   id                   String            @id @default(cuid())
   email                String            @unique
   name                 String
+  username             String?
   passwordHash         String
   avatarUrl            String?
   role                 Role              @default(EMPLOYEE)
@@ -99,6 +100,7 @@ model User {
   eventRsvps           EventRsvp[]       @relation("EventRsvps")
   eventComments        EventComment[]    @relation("EventComments")
 
+  @@unique([workspaceId, username])
   @@index([workspaceId])
   @@index([positionId])
 }
@@ -211,6 +213,7 @@ model Poll {
   endsAt           DateTime
   resultVisibility PollResultVisibility @default(AUTO_AFTER_END)
   resultsVisible   Boolean              @default(false)
+  votesAnonymous   Boolean              @default(false)
   closedAt         DateTime?
   createdAt        DateTime             @default(now())
   options          PollOption[]

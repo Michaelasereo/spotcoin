@@ -25,8 +25,8 @@ type RecognitionItem = {
   id: string;
   senderId: string;
   recipientId: string;
-  sender: { name: string };
-  recipient: { name: string };
+  sender: { displayName: string };
+  recipient: { displayName: string };
   value: { name: string };
   coinAmount: number;
   createdAt: string;
@@ -170,10 +170,10 @@ export default function WalletPage() {
               const isSent = userId ? item.senderId === userId : false;
               const amountText = isReceived ? `+${item.coinAmount}` : `-${item.coinAmount}`;
               const description = isReceived
-                ? `From ${item.sender.name} · ${item.value.name}`
+                ? `From ${item.sender.displayName} · ${item.value.name}`
                 : isSent
-                  ? `To ${item.recipient.name} · ${item.value.name}`
-                  : `${item.sender.name} → ${item.recipient.name} · ${item.value.name}`;
+                  ? `To ${item.recipient.displayName} · ${item.value.name}`
+                  : `${item.sender.displayName} → ${item.recipient.displayName} · ${item.value.name}`;
 
               return (
                 <ListRow

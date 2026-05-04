@@ -6,11 +6,13 @@ import { prisma } from "@/lib/db";
 import { resendFromAddress } from "@/lib/resendFrom";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { publicFeedDisplayName } from "@/lib/publicDisplayName";
 import { hashResetToken } from "@/lib/services/passwordResetService";
 import { recognitionService, type RecognitionHistoryFilters } from "@/lib/services/recognitionService";
 
 const resendClient = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 const INVITE_LINK_TTL_HOURS = 72;
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,30}$/;
 
 async function assertAdminAccess(adminId: string, workspaceId: string) {
   const admin = await prisma.user.findFirst({
@@ -59,6 +61,7 @@ export const userService = {
         id: true,
         email: true,
         name: true,
+        username: true,
         avatarUrl: true,
         role: true,
         workspaceId: true,
@@ -75,7 +78,53 @@ export const userService = {
       throw new AppError("User not found", "USER_NOT_FOUND", 404);
     }
 
-    return user;
+    return {
+      ...user,
+      feedDisplayName: publicFeedDisplayName({ username: user.username, email: user.email }),
+    };
+  },
+
+  async updateOwnUsername(userId: string, username: string | null) {
+    const user = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { workspaceId: true },
+    });
+    if (!user) {
+      throw new AppError("User not found", "USER_NOT_FOUND", 404);
+    }
+
+    if (username === null || username.trim() === "") {
+      await prisma.user.update({ where: { id: userId }, data: { username: null } });
+      return this.getMe(userId);
+    }
+
+    const trimmed = username.trim();
+    if (!USERNAME_PATTERN.test(trimmed)) {
+      throw new AppError(
+        "Username must be 3–30 characters and use only letters, numbers, and underscores",
+        "INVALID_USERNAME",
+        400,
+      );
+    }
+
+    const clash = await prisma.user.findFirst({
+      where: {
+        workspaceId: user.workspaceId,
+        id: { not: userId },
+        deletedAt: null,
+        username: { equals: trimmed, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new AppError("That username is already taken in your workspace", "USERNAME_TAKEN", 409);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { username: trimmed },
+    });
+    return this.getMe(userId);
   },
 
   async changeOwnPassword(userId: string, currentPassword: string, newPassword: string) {
@@ -127,6 +176,24 @@ export const userService = {
       },
       orderBy: { name: "asc" },
       take: 20,
+    });
+  },
+
+  async listRecognitionRecipients(workspaceId: string, excludeUserId: string) {
+    return prisma.user.findMany({
+      where: {
+        workspaceId,
+        deletedAt: null,
+        id: { not: excludeUserId },
+      },
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        email: true,
+      },
+      orderBy: { name: "asc" },
+      take: 500,
     });
   },
 

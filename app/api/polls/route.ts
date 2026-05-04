@@ -19,6 +19,7 @@ const createPollSchema = z.object({
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   resultVisibility: z.enum(["AUTO_AFTER_END", "MANUAL"]),
+  votesAnonymous: z.boolean().optional().default(false),
   options: z.array(optionSchema).min(2).max(10),
 });
 
@@ -44,6 +45,7 @@ export const POST = requireAdminOrManager(async (request, _context, session) => 
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
       resultVisibility: body.resultVisibility,
+      votesAnonymous: body.votesAnonymous,
       options: body.options,
     });
     return success(poll);

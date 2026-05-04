@@ -2,7 +2,40 @@ import type { Prisma, Recognition } from "@prisma/client";
 import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import { publicFeedDisplayName } from "@/lib/publicDisplayName";
 import { sendLowBalanceDM } from "@/lib/slack/notifier";
+
+const recognitionUserSelect = { username: true, email: true, avatarUrl: true } as const;
+
+function mapRecognitionForFeed(row: {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  message: string;
+  coinAmount: number;
+  createdAt: Date;
+  sender: { username: string | null; email: string; avatarUrl: string | null };
+  recipient: { username: string | null; email: string; avatarUrl: string | null };
+  value: { name: string; emoji: string };
+}) {
+  return {
+    id: row.id,
+    senderId: row.senderId,
+    recipientId: row.recipientId,
+    message: row.message,
+    coinAmount: row.coinAmount,
+    createdAt: row.createdAt.toISOString(),
+    sender: {
+      displayName: publicFeedDisplayName(row.sender),
+      avatarUrl: row.sender.avatarUrl,
+    },
+    recipient: {
+      displayName: publicFeedDisplayName(row.recipient),
+      avatarUrl: row.recipient.avatarUrl,
+    },
+    value: row.value,
+  };
+}
 
 export type SendRecognitionInput = {
   recipientId: string;
@@ -161,8 +194,8 @@ export const recognitionService = {
         skip,
         take: safePageSize,
         include: {
-          sender: { select: { name: true, avatarUrl: true } },
-          recipient: { select: { name: true, avatarUrl: true } },
+          sender: { select: recognitionUserSelect },
+          recipient: { select: recognitionUserSelect },
           value: { select: { name: true, emoji: true } },
         },
       }),
@@ -170,7 +203,7 @@ export const recognitionService = {
     ]);
 
     return {
-      items,
+      items: items.map(mapRecognitionForFeed),
       meta: {
         page: safePage,
         pageSize: safePageSize,
@@ -214,8 +247,8 @@ export const recognitionService = {
         skip,
         take: pageSize,
         include: {
-          sender: { select: { name: true, avatarUrl: true } },
-          recipient: { select: { name: true, avatarUrl: true } },
+          sender: { select: recognitionUserSelect },
+          recipient: { select: recognitionUserSelect },
           value: { select: { name: true, emoji: true } },
         },
       }),
@@ -223,7 +256,7 @@ export const recognitionService = {
     ]);
 
     return {
-      items,
+      items: items.map(mapRecognitionForFeed),
       meta: {
         page,
         pageSize,

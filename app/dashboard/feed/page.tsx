@@ -19,8 +19,8 @@ type FeedItem = {
   message: string;
   coinAmount: number;
   createdAt: string;
-  sender: { name: string; avatarUrl: string | null };
-  recipient: { name: string; avatarUrl: string | null };
+  sender: { displayName: string; avatarUrl: string | null };
+  recipient: { displayName: string; avatarUrl: string | null };
   value: { name: string; emoji: string };
 };
 
@@ -222,13 +222,13 @@ function FeedTabsInner() {
                 >
                   <header className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2.5">
-                      <Avatar name={item.sender.name} size="sm" />
+                      <Avatar name={item.sender.displayName} size="sm" />
                       <ArrowRight size={12} className="shrink-0 text-muted" />
-                      <Avatar name={item.recipient.name} size="sm" />
+                      <Avatar name={item.recipient.displayName} size="sm" />
                       <p className="min-w-0 truncate text-xs text-muted">
-                        <span className="font-medium text-foreground">{item.sender.name}</span>
+                        <span className="font-medium text-foreground">{item.sender.displayName}</span>
                         <span className="px-1 text-muted">→</span>
-                        <span className="font-medium text-foreground">{item.recipient.name}</span>
+                        <span className="font-medium text-foreground">{item.recipient.displayName}</span>
                       </p>
                     </div>
                     <div className="flex items-center gap-1 rounded-full border border-border bg-card-2 px-2 py-0.5 font-mono text-xs font-semibold text-foreground">

@@ -1,5 +1,6 @@
 import { WebClient } from "@slack/web-api";
 import { prisma } from "@/lib/db";
+import { publicFeedDisplayName } from "@/lib/publicDisplayName";
 import { getTokenForTeam } from "@/lib/slack/tokenStore";
 import { verifySlackSignature } from "@/lib/slack/verifySignature";
 import { buildHomeView } from "@/lib/slack/homeView";
@@ -28,7 +29,10 @@ async function handleAppHomeOpened(payload: any) {
       sentRecognitions: {
         take: 3,
         orderBy: { createdAt: "desc" },
-        include: { recipient: { select: { name: true } }, value: { select: { emoji: true, name: true } } },
+        include: {
+          recipient: { select: { username: true, email: true } },
+          value: { select: { emoji: true, name: true } },
+        },
       },
     },
   });
@@ -37,7 +41,7 @@ async function handleAppHomeOpened(payload: any) {
   const token = await getTokenForTeam(teamId);
   const client = new WebClient(token);
   const recent = user.sentRecognitions.map((item) => ({
-    text: `${item.value.emoji} → ${item.recipient.name} · ${item.coinAmount} coin(s)`,
+    text: `${item.value.emoji} → ${publicFeedDisplayName(item.recipient)} · ${item.coinAmount} coin(s)`,
   }));
 
   await client.views.publish({

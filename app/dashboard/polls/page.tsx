@@ -6,6 +6,7 @@ import { BarChart3, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { InfoBanner } from "@/components/ui/info-banner";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Segmented } from "@/components/ui/segmented";
@@ -34,6 +35,7 @@ type PollDto = {
   resultVisibility: "AUTO_AFTER_END" | "MANUAL";
   resultsEffectiveVisible: boolean;
   votingOpen: boolean;
+  votesAnonymous: boolean;
   createdBy: { id: string; name: string };
   options: PollOptionDto[];
   viewerOptionIds: string[];
@@ -59,6 +61,7 @@ export default function PollsPage() {
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [resultVisibility, setResultVisibility] = useState<"AUTO_AFTER_END" | "MANUAL">("AUTO_AFTER_END");
+  const [votesAnonymous, setVotesAnonymous] = useState(false);
   const [pollLabels, setPollLabels] = useState(["", ""]);
   const [awardUsers, setAwardUsers] = useState<{ id: string; name: string }[]>([]);
   const [searchQ, setSearchQ] = useState("");
@@ -104,6 +107,7 @@ export default function PollsPage() {
     setStartsAt("");
     setEndsAt("");
     setResultVisibility("AUTO_AFTER_END");
+    setVotesAnonymous(false);
     setPollLabels(["", ""]);
     setAwardUsers([]);
     setSearchQ("");
@@ -139,6 +143,7 @@ export default function PollsPage() {
           startsAt: new Date(startsAt).toISOString(),
           endsAt: new Date(endsAt).toISOString(),
           resultVisibility,
+          votesAnonymous,
           options,
         }),
       });
@@ -167,7 +172,11 @@ export default function PollsPage() {
       showToast(json.error ?? "Vote failed", "error");
       return;
     }
-    showToast("Vote saved");
+    showToast(
+      poll.votesAnonymous
+        ? "Vote saved. Your choice is anonymous—others only see totals, not who voted for what."
+        : "Vote saved",
+    );
     await load();
   };
 
@@ -220,6 +229,7 @@ export default function PollsPage() {
                     <Badge variant={poll.kind === "AWARD" ? "accent" : "neutral"}>{poll.kind === "AWARD" ? "Award" : "Poll"}</Badge>
                     {poll.votingOpen ? <Badge variant="outline">Live voting</Badge> : null}
                     {poll.resultsEffectiveVisible ? <Badge variant="neutral">Results visible</Badge> : null}
+                    {poll.votesAnonymous ? <Badge variant="neutral">Anonymous</Badge> : null}
                   </div>
                   <h2 className="mt-2 text-base font-semibold text-foreground">{poll.title}</h2>
                   {poll.description ? <p className="mt-1 text-xs text-muted">{poll.description}</p> : null}
@@ -294,6 +304,14 @@ export default function PollsPage() {
             <label className="flex items-center gap-2 text-xs text-foreground">
               <input type="checkbox" checked={multiSelect} onChange={(e) => setMultiSelect(e.target.checked)} />
               Allow multiple choices
+            </label>
+            <label className="flex items-center gap-2 text-xs text-foreground">
+              <input
+                type="checkbox"
+                checked={votesAnonymous}
+                onChange={(e) => setVotesAnonymous(e.target.checked)}
+              />
+              Anonymous voting (voters are told their vote is private; only aggregate counts are shown)
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -408,6 +426,14 @@ function VoteInline({ poll, onSubmit }: { poll: PollDto; onSubmit: (ids: string[
 
   return (
     <div className="mt-4 border-t border-border pt-4">
+      {poll.votesAnonymous ? (
+        <InfoBanner
+          variant="accent"
+          className="mb-4"
+          title="Anonymous voting"
+          body="Your choices are not shown to teammates—only combined vote totals are visible. You can change your vote while the poll is open."
+        />
+      ) : null}
       <p className="mb-2 text-xs font-medium text-muted">Your vote</p>
       <div className="space-y-2">
         {poll.options.map((opt) => (

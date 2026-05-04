@@ -12,8 +12,7 @@ test.describe("Critical product flows", () => {
     await login(page, "employee-a@test.com", "password123");
     await page.goto("/dashboard/recognise");
 
-    await page.getByPlaceholder("Search by name...").fill("employee b");
-    await page.getByRole("button", { name: /employee b/i }).first().click();
+    await page.getByLabel("Recipient").selectOption({ label: "Employee B (employee-b@test.com)" });
     await page.getByRole("button", { name: /ownership|collaboration|innovation|customer/i }).first().click();
     await page.getByPlaceholder("Share what they did well...").fill("Great teamwork and support today.");
     await page.getByRole("button", { name: "2" }).click();

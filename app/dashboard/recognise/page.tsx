@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Heart, Search, Sparkles, X } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
+import { Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,10 +47,8 @@ export default function RecognisePage() {
   const [coinsToGive, setCoinsToGive] = useState(0);
   const [isBootLoading, setIsBootLoading] = useState(true);
 
-  const [search, setSearch] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
+  const [recipients, setRecipients] = useState<SearchUser[]>([]);
   const [selectedRecipient, setSelectedRecipient] = useState<SearchUser | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
 
   const [values, setValues] = useState<CompanyValue[]>([]);
   const [selectedValueId, setSelectedValueId] = useState("");
@@ -67,18 +63,25 @@ export default function RecognisePage() {
   useEffect(() => {
     const loadBootstrap = async () => {
       try {
-        const [meRes, valuesRes] = await Promise.all([
+        const [meRes, valuesRes, recipientsRes] = await Promise.all([
           fetch("/api/users/me", { cache: "no-store" }),
           fetch("/api/workspace/values", { cache: "no-store" }),
+          fetch("/api/users/recognition-recipients", { cache: "no-store" }),
         ]);
 
         const me = (await meRes.json()) as MeResponse;
         const companyValues = (await valuesRes.json()) as ValuesResponse;
+        const recipientsPayload = (await recipientsRes.json()) as SearchResponse;
 
         const coins = me.data?.coinsToGive ?? 0;
         setCoinsToGive(coins);
         setCoinAmount(coins > 0 ? 1 : 0);
-        setValues(companyValues.data ?? []);
+        const valuesList = companyValues.data ?? [];
+        setValues(valuesList);
+        if (valuesList.length > 0) {
+          setSelectedValueId(valuesList[0].id);
+        }
+        setRecipients(recipientsPayload.data ?? []);
       } finally {
         setIsBootLoading(false);
       }
@@ -86,28 +89,6 @@ export default function RecognisePage() {
 
     void loadBootstrap();
   }, []);
-
-  useEffect(() => {
-    if (selectedRecipient || !search.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timeout = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const response = await fetch(`/api/users/search?q=${encodeURIComponent(search.trim())}`, {
-          cache: "no-store",
-        });
-        const payload = (await response.json()) as SearchResponse;
-        setSearchResults(payload.data ?? []);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [search, selectedRecipient]);
 
   const availableCoins = useMemo(
     () => Array.from({ length: Math.max(0, coinsToGive) }, (_, i) => i + 1),
@@ -124,10 +105,8 @@ export default function RecognisePage() {
     !isSubmitting;
 
   const resetForm = () => {
-    setSearch("");
-    setSearchResults([]);
     setSelectedRecipient(null);
-    setSelectedValueId("");
+    setSelectedValueId(values.length > 0 ? values[0].id : "");
     setMessage("");
     setCoinAmount(coinsToGive > 0 ? 1 : 0);
     setSubmitError("");
@@ -222,71 +201,32 @@ export default function RecognisePage() {
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <label className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted">
+          <label
+            htmlFor="recognition-recipient"
+            className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted"
+          >
             Recipient
           </label>
-          {selectedRecipient ? (
-            <div className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-card px-3 py-2.5">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <Avatar name={selectedRecipient.name} size="sm" />
-                <div className="min-w-0 leading-tight">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {selectedRecipient.name}
-                  </p>
-                  <p className="truncate text-[11px] text-muted">{selectedRecipient.email}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRecipient(null);
-                  setSearch("");
-                  setSearchResults([]);
-                }}
-                aria-label="Clear selected recipient"
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card-2 text-muted transition-colors hover:border-border-strong hover:text-foreground"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="relative">
-                <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search by name..."
-                  className="pl-10"
-                />
-              </div>
-              {isSearching ? (
-                <p className="px-1 text-[11px] text-muted">Searching...</p>
-              ) : null}
-              {searchResults.length > 0 ? (
-                <div className="space-y-1.5 rounded-[14px] border border-border bg-card p-1.5">
-                  {searchResults.map((user) => (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedRecipient(user);
-                        setSearchResults([]);
-                        setSearch("");
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors hover:bg-card-2"
-                    >
-                      <Avatar name={user.name} size="sm" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-foreground">{user.name}</p>
-                        <p className="truncate text-[11px] text-muted">{user.email}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          )}
+          <select
+            id="recognition-recipient"
+            value={selectedRecipient?.id ?? ""}
+            onChange={(event) => {
+              const id = event.target.value;
+              const next = recipients.find((u) => u.id === id) ?? null;
+              setSelectedRecipient(next);
+            }}
+            className="h-12 w-full rounded-[12px] border border-border bg-input px-4 text-sm text-foreground outline-none transition-colors focus:border-border-strong focus:bg-card-2"
+          >
+            <option value="">Select a teammate…</option>
+            {recipients.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.email})
+              </option>
+            ))}
+          </select>
+          {recipients.length === 0 ? (
+            <p className="px-1 text-[11px] text-muted">No teammates available to recognize yet.</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -307,6 +247,11 @@ export default function RecognisePage() {
               );
             })}
           </div>
+          {values.length === 0 ? (
+            <p className="px-1 text-[11px] text-muted">
+              No company values yet. Ask your admin to add them in Settings before you can send Spotcoin.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">

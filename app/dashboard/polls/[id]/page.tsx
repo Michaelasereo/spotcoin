@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InfoBanner } from "@/components/ui/info-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,7 @@ type PollDto = {
   resultsEffectiveVisible: boolean;
   resultsVisible: boolean;
   votingOpen: boolean;
+  votesAnonymous: boolean;
   createdBy: { id: string; name: string };
   options: PollOptionDto[];
   viewerOptionIds: string[];
@@ -79,7 +81,12 @@ export default function PollDetailPage() {
       showToast(json.error ?? "Vote failed", "error");
       return;
     }
-    showToast("Vote saved");
+    const anon = poll?.votesAnonymous;
+    showToast(
+      anon
+        ? "Vote saved. Your choice is anonymous—others only see totals, not who voted for what."
+        : "Vote saved",
+    );
     await load();
   };
 
@@ -143,6 +150,7 @@ export default function PollDetailPage() {
         <Badge variant={poll.kind === "AWARD" ? "accent" : "neutral"}>{poll.kind === "AWARD" ? "Award" : "Poll"}</Badge>
         {poll.votingOpen ? <Badge variant="outline">Live voting</Badge> : null}
         {poll.resultsEffectiveVisible ? <Badge variant="neutral">Results visible</Badge> : null}
+        {poll.votesAnonymous ? <Badge variant="neutral">Anonymous</Badge> : null}
       </div>
 
       <p className="mt-3 text-xs text-muted">
@@ -173,6 +181,14 @@ export default function PollDetailPage() {
 
       {poll.votingOpen ? (
         <div className="mt-8 rounded-2xl border border-border bg-card p-4">
+          {poll.votesAnonymous ? (
+            <InfoBanner
+              variant="accent"
+              className="mb-4"
+              title="Anonymous voting"
+              body="Your choices are not shown to teammates—only combined vote totals are visible. You can change your vote while the poll is open."
+            />
+          ) : null}
           <p className="mb-3 text-xs font-medium text-muted">Your vote</p>
           <div className="space-y-2">
             {poll.options.map((opt) => (

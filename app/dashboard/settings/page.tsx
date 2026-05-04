@@ -1,17 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/hooks/use-toast";
 
+type MeResponse = {
+  data: {
+    username: string | null;
+    email: string;
+  };
+};
+
 export default function DashboardSettingsPage() {
   const { showToast } = useToast();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch("/api/users/me", { cache: "no-store" });
+        const json = (await res.json()) as MeResponse & { error?: string };
+        if (!res.ok) {
+          showToast(json.error ?? "Could not load profile", "error");
+          return;
+        }
+        const d = json.data;
+        if (d) {
+          setUsername(d.username ?? "");
+          setEmail(d.email);
+        }
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    void load();
+  }, [showToast]);
+
+  const handleProfileSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    try {
+      const trimmed = username.trim();
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: trimmed === "" ? null : trimmed }),
+      });
+      const payload = (await res.json()) as MeResponse & { error?: string };
+
+      if (!res.ok) {
+        showToast(payload.error ?? "Could not update username", "error");
+        return;
+      }
+
+      showToast("Profile updated");
+      const d = payload.data;
+      if (d) {
+        setUsername(d.username ?? "");
+        setEmail(d.email);
+      }
+    } finally {
+      setProfileSaving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +112,50 @@ export default function DashboardSettingsPage() {
     <div className="pb-8">
       <PageHeader
         title="Account"
-        description="Change your sign-in password. Use a strong password you do not reuse elsewhere."
+        description="Manage how you appear on the team feed and your sign-in password."
       />
+
+      <section className="mt-8 rounded-2xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold text-foreground">Feed username</h2>
+        <p className="mt-1 text-xs text-muted">
+          This is how your name appears on the recognition feed and in Slack recognition posts. If you leave
+          username empty, your sign-in email is shown instead
+          {email ? (
+            <>
+              {" "}
+              (<span className="font-mono">{email}</span>).
+            </>
+          ) : (
+            "."
+          )}
+        </p>
+        {profileLoading ? (
+          <p className="mt-4 text-xs text-muted">Loading…</p>
+        ) : (
+          <form onSubmit={handleProfileSave} className="mt-4 space-y-4">
+            <div>
+              <label htmlFor="username" className="mb-1.5 block text-xs font-medium text-muted">
+                Username (optional)
+              </label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g. alex_k"
+                autoComplete="nickname"
+                maxLength={30}
+              />
+              <p className="mt-1.5 text-[11px] text-muted">
+                3–30 characters: letters, numbers, and underscores. Unique in your workspace. Preview:{" "}
+                <span className="font-medium text-foreground">{username.trim() || email || "—"}</span>
+              </p>
+            </div>
+            <Button type="submit" disabled={profileSaving}>
+              {profileSaving ? "Saving…" : "Save username"}
+            </Button>
+          </form>
+        )}
+      </section>
 
       <section className="mt-8 rounded-2xl border border-border bg-card p-6">
         <h2 className="text-sm font-semibold text-foreground">Change password</h2>
