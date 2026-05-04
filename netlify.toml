@@ -6,7 +6,8 @@
 
 [build]
   # Temporary: skip Prisma migrate during deploy while DB connectivity is unstable.
-  command = "npm run build"
+  # Force production React/Next behavior; local `.env.local` may set NODE_ENV=development and break prerender.
+  command = "NODE_ENV=production npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
