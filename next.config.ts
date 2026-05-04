@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 const apiOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const nextConfig: NextConfig = {
+  // Prisma ships platform-specific `.node` query engines under `.prisma/client`. Next file tracing
+  // often omits them from the serverless bundle, so Lambda only sees darwin-arm64 → runtime error on Netlify.
+  serverExternalPackages: ["@prisma/client"],
+  outputFileTracingIncludes: {
+    "/*": ["./node_modules/.prisma/client/**/*"],
+  },
   async headers() {
     const csp = [
       "default-src 'self'",
