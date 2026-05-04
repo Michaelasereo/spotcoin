@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { pathnameFromHeaders, searchFromHeaders } from "@/lib/adminRequestPath";
 import { auth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
@@ -11,8 +12,8 @@ export default async function AdminLayout({
 }) {
   const session = await auth();
   const headerList = await headers();
-  const pathname = headerList.get("x-pathname") ?? "";
-  const search = headerList.get("x-search") ?? "";
+  const pathname = pathnameFromHeaders(headerList);
+  const search = searchFromHeaders(headerList);
 
   if (!session?.user?.id) {
     redirect(`/login${search}`);
@@ -33,7 +34,7 @@ export default async function AdminLayout({
   });
 
   const shouldOnboard = !!workspace && !workspace.onboardingComplete && workspace.values.length === 0;
-  if (shouldOnboard && pathname !== "/admin/onboarding") {
+  if (shouldOnboard && pathname && pathname !== "/admin/onboarding") {
     redirect("/admin/onboarding");
   }
 
