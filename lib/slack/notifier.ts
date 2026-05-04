@@ -7,25 +7,31 @@ type WorkspaceSlackContext = {
   targetChannelId: string | null;
 };
 
+/** @returns Slack message `ts` when the channel post succeeds, otherwise `null`. */
 export async function sendPublicPost(
   recognition: { message: string; coinAmount: number },
   sender: { name: string },
   recipient: { name: string },
   value: { name: string; emoji: string },
   workspace: WorkspaceSlackContext,
-) {
-  if (!workspace.slackTeamId || !workspace.targetChannelId) return;
+): Promise<string | null> {
+  if (!workspace.slackTeamId || !workspace.targetChannelId) return null;
 
   try {
     const token = await getTokenForTeam(workspace.slackTeamId);
     const client = new WebClient(token);
-    await client.chat.postMessage({
+    const resp = await client.chat.postMessage({
       channel: workspace.targetChannelId,
       text: `${sender.name} recognized ${recipient.name}`,
       blocks: buildPublicPost(sender, recipient, recognition, value) as any,
     });
+    if (!resp.ok || !resp.ts) {
+      return null;
+    }
+    return resp.ts;
   } catch (err) {
     console.error("Failed to send public Slack post", err);
+    return null;
   }
 }
 

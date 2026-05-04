@@ -3,6 +3,7 @@ import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { publicFeedDisplayName } from "@/lib/publicDisplayName";
+import { notifyRecognitionSentToSlack } from "@/lib/slack/notifyRecognitionSent";
 import { sendLowBalanceDM } from "@/lib/slack/notifier";
 
 const recognitionUserSelect = { username: true, email: true, avatarUrl: true } as const;
@@ -178,6 +179,10 @@ export const recognitionService = {
         targetChannelId: workspace?.targetChannelId ?? null,
       },
     );
+
+    void notifyRecognitionSentToSlack(recognition.id, sender.workspaceId).catch((err) => {
+      console.error("[recognitionService.send] Slack recognition notify failed", err);
+    });
 
     return recognition;
   },

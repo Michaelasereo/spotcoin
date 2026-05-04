@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const slackNotifyMocks = vi.hoisted(() => ({
+  notifyRecognitionSentToSlack: vi.fn().mockResolvedValue(undefined),
+}));
+
 const mockPrisma = {
   user: {
     findUnique: vi.fn(),
@@ -22,9 +26,12 @@ vi.mock("@/lib/slack/notifier", () => ({
   sendLowBalanceDM: sendLowBalanceDMMock,
 }));
 
+vi.mock("@/lib/slack/notifyRecognitionSent", () => slackNotifyMocks);
+
 describe("recognitionService.send", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    slackNotifyMocks.notifyRecognitionSentToSlack.mockResolvedValue(undefined);
   });
 
   it("handles happy path and updates balances", async () => {
@@ -77,6 +84,7 @@ describe("recognitionService.send", () => {
     expect(tx.user.update).toHaveBeenCalledTimes(2);
     expect(tx.coinTransaction.createMany).toHaveBeenCalledTimes(1);
     expect(sendLowBalanceDMMock).toHaveBeenCalledTimes(1);
+    expect(slackNotifyMocks.notifyRecognitionSentToSlack).toHaveBeenCalledWith("rec-1", "ws-1");
   });
 
   it("throws when sender equals recipient", async () => {

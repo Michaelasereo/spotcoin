@@ -1,9 +1,7 @@
 import { prisma } from "@/lib/db";
-import { publicFeedDisplayName } from "@/lib/publicDisplayName";
 import { buildRecognitionModal } from "@/lib/slack/messageBuilder";
 import { getTokenForTeam } from "@/lib/slack/tokenStore";
 import { recognitionService } from "@/lib/services/recognitionService";
-import { sendPublicPost, sendRecipientDM } from "@/lib/slack/notifier";
 import { verifySlackSignature } from "@/lib/slack/verifySignature";
 
 function getTeamIdFromPayload(payload: any): string | undefined {
@@ -70,34 +68,11 @@ async function handleSubmitRecognition(payload: any) {
   if (!recipient) return;
 
   const coinAmount = Number(coinAmountRaw);
-  const recognition = await recognitionService.send(sender.id, {
+  await recognitionService.send(sender.id, {
     recipientId: recipient.id,
     message,
     valueId,
     coinAmount,
-  });
-
-  const value = await prisma.companyValue.findUnique({
-    where: { id: valueId },
-    select: { name: true, emoji: true },
-  });
-  if (!value) return;
-
-  const senderForSlack = {
-    name: publicFeedDisplayName({ username: sender.username, email: sender.email }),
-  };
-  const recipientForSlack = {
-    name: publicFeedDisplayName({ username: recipient.username, email: recipient.email }),
-    slackUserId: recipient.slackUserId,
-  };
-
-  await sendPublicPost(recognition, senderForSlack, recipientForSlack, value, {
-    slackTeamId: teamId,
-    targetChannelId: workspace.targetChannelId,
-  });
-  await sendRecipientDM(recognition, senderForSlack, recipientForSlack, value, {
-    slackTeamId: teamId,
-    targetChannelId: workspace.targetChannelId,
   });
 }
 
