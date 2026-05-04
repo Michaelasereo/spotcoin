@@ -56,9 +56,11 @@ export async function POST(request: Request) {
   const command = params.get("command");
 
   if (command === "/spotcoin") {
-    void handleSpotcoinCommand(params).catch((err) => {
+    try {
+      await handleSpotcoinCommand(params);
+    } catch (err) {
       console.error("Slack command handler failed", err);
-    });
+    }
   }
 
   return new Response("", { status: 200 });

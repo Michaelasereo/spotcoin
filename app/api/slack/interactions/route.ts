@@ -8,9 +8,13 @@ function getTeamIdFromPayload(payload: any): string | undefined {
   return payload?.team?.id ?? payload?.user?.team_id ?? payload?.view?.team_id;
 }
 
-async function openRecognitionModal(teamId: string, slackUserId: string, triggerId: string) {
+type OpenModalResult = { ok: true } | { ok: false; reason: string };
+
+async function openRecognitionModal(teamId: string, slackUserId: string, triggerId: string): Promise<OpenModalResult> {
   const workspace = await prisma.workspace.findUnique({ where: { slackTeamId: teamId }, select: { id: true } });
-  if (!workspace) return;
+  if (!workspace) {
+    return { ok: false, reason: "Spotcoin is not connected for this Slack workspace." };
+  }
 
   const [user, values] = await Promise.all([
     prisma.user.findFirst({
@@ -27,15 +31,51 @@ async function openRecognitionModal(teamId: string, slackUserId: string, trigger
       orderBy: { name: "asc" },
     }),
   ]);
-  if (!user || values.length === 0) return;
+  if (!user) {
+    return {
+      ok: false,
+      reason:
+        "Your Slack account is not linked to Spotcoin yet. Sign in at Spotcoin with the same email your admin invited, then try again.",
+    };
+  }
+  if (values.length === 0) {
+    return {
+      ok: false,
+      reason: "No active company values are set up yet. Ask a Spotcoin admin to add values in Admin → Settings.",
+    };
+  }
 
-  const token = await getTokenForTeam(teamId);
-  const { WebClient } = await import("@slack/web-api");
-  const client = new WebClient(token);
-  await client.views.open({
-    trigger_id: triggerId,
-    view: buildRecognitionModal(values, user.coinsToGive, slackUserId) as any,
+  try {
+    const token = await getTokenForTeam(teamId);
+    const { WebClient } = await import("@slack/web-api");
+    const client = new WebClient(token);
+    await client.views.open({
+      trigger_id: triggerId,
+      view: buildRecognitionModal(values, user.coinsToGive, slackUserId) as any,
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("Slack views.open failed", err);
+    return {
+      ok: false,
+      reason: "Could not open the recognition form. Please try again in a moment or use `/spotcoin`.",
+    };
+  }
+}
+
+async function postEphemeralToResponseUrl(responseUrl: string, text: string) {
+  const res = await fetch(responseUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      response_type: "ephemeral",
+      replace_original: false,
+      text,
+    }),
   });
+  if (!res.ok) {
+    console.error("Slack response_url ephemeral failed", res.status, await res.text());
+  }
 }
 
 async function handleSubmitRecognition(payload: any) {
@@ -98,19 +138,45 @@ export async function POST(request: Request) {
       const teamId: string | undefined = getTeamIdFromPayload(payload);
       const slackUserId: string | undefined = payload.user?.id;
       const triggerId: string | undefined = payload.trigger_id;
+      const responseUrl: string | undefined = typeof payload.response_url === "string" ? payload.response_url : undefined;
       if (teamId && slackUserId && triggerId) {
-        void openRecognitionModal(teamId, slackUserId, triggerId).catch((err) => {
+        try {
+          const result = await openRecognitionModal(teamId, slackUserId, triggerId);
+          if (!result.ok && responseUrl) {
+            void postEphemeralToResponseUrl(responseUrl, result.reason);
+          }
+        } catch (err) {
           console.error("Slack interaction open modal handler failed", err);
-        });
+          if (responseUrl) {
+            void postEphemeralToResponseUrl(
+              responseUrl,
+              "Something went wrong opening recognition. Please try again or use `/spotcoin`.",
+            );
+          }
+        }
       }
     }
     return new Response("", { status: 200 });
   }
 
   if (payload.type === "view_submission" && payload.view?.callback_id === "submit_recognition") {
-    void handleSubmitRecognition(payload).catch((err) => {
+    try {
+      await handleSubmitRecognition(payload);
+    } catch (err) {
       console.error("Slack interaction submit handler failed", err);
-    });
+      return new Response(
+        JSON.stringify({
+          response_action: "errors",
+          errors: {
+            message_block: "Could not send recognition. Check balances and try again.",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
     return new Response(JSON.stringify({ response_action: "clear" }), {
       status: 200,
       headers: { "content-type": "application/json" },
