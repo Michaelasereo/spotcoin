@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     const csp = [
       "default-src 'self'",
       `connect-src 'self' ${apiOrigin}`,
-      "img-src 'self' https://*.slack-edge.com https://*.slack.com data:",
+      "img-src 'self' https: https://*.slack-edge.com https://*.slack.com data:",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "font-src 'self' data:",

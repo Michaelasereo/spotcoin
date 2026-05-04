@@ -14,6 +14,8 @@ export default async function DashboardLayout({
   }
 
   return (
-    <AppShell isAdmin={session.user.role === "ADMIN"}>{children}</AppShell>
+    <AppShell isAdmin={session.user.role === "ADMIN"} role={session.user.role}>
+      {children}
+    </AppShell>
   );
 }

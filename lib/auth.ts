@@ -125,3 +125,17 @@ export function requireAdmin(handler: RouteHandler) {
     return handler(request, { params }, session);
   };
 }
+
+export function requireAdminOrManager(handler: RouteHandler) {
+  return async (request: Request, context: NextRouteContext) => {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.workspaceId) {
+      throw new AppError("Authentication required", "UNAUTHORIZED", 401);
+    }
+    if (session.user.role !== "ADMIN" && session.user.role !== "MANAGER") {
+      throw new AppError("Admin or manager access required", "FORBIDDEN", 403);
+    }
+    const params = await Promise.resolve(context?.params ?? {});
+    return handler(request, { params }, session);
+  };
+}

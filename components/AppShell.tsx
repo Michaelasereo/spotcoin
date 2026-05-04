@@ -1,13 +1,15 @@
 import Image from "next/image";
 import { BottomNav } from "@/components/BottomNav";
+import { DashboardRoleProvider, type DashboardRole } from "@/components/DashboardRoleProvider";
 import { Sidebar } from "@/components/Sidebar";
 
 type AppShellProps = {
   children: React.ReactNode;
   isAdmin: boolean;
+  role?: DashboardRole;
 };
 
-export function AppShell({ children, isAdmin }: AppShellProps) {
+export function AppShell({ children, isAdmin, role = "EMPLOYEE" }: AppShellProps) {
   return (
     <main className="app-top-glow relative min-h-screen overflow-hidden bg-background">
       <div className="md:flex">
@@ -29,7 +31,7 @@ export function AppShell({ children, isAdmin }: AppShellProps) {
           </header>
 
           <div className="mx-auto w-full max-w-[480px] px-5 md:max-w-3xl md:px-8 md:pt-8">
-            {children}
+            <DashboardRoleProvider role={role}>{children}</DashboardRoleProvider>
           </div>
         </div>
       </div>

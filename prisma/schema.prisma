@@ -32,6 +32,22 @@ enum PayoutWindowStatus {
   CLOSED
 }
 
+enum PollKind {
+  POLL
+  AWARD
+}
+
+enum PollResultVisibility {
+  AUTO_AFTER_END
+  MANUAL
+}
+
+enum RsvpStatus {
+  GOING
+  INTERESTED
+  NOT_GOING
+}
+
 model Workspace {
   id                  String   @id @default(cuid())
   name                String
@@ -49,6 +65,8 @@ model Workspace {
   positions           Position[]
   recognitions        Recognition[]
   payoutWindows       PayoutWindow[]
+  polls               Poll[]
+  workspaceEvents     WorkspaceEvent[]
 }
 
 model User {
@@ -74,6 +92,12 @@ model User {
   coinTransactions     CoinTransaction[]
   openedPayoutWindows  PayoutWindow[]    @relation("PayoutWindowOpenedBy")
   passwordResetTokens  PasswordResetToken[]
+  pollsCreated         Poll[]            @relation("PollsCreated")
+  awardPollOptions     PollOption[]      @relation("AwardPollOptions")
+  pollVotes            PollVote[]        @relation("PollVotes")
+  workspaceEventsCreated WorkspaceEvent[] @relation("WorkspaceEventsCreated")
+  eventRsvps           EventRsvp[]       @relation("EventRsvps")
+  eventComments        EventComment[]    @relation("EventComments")
 
   @@index([workspaceId])
   @@index([positionId])
@@ -171,4 +195,101 @@ model PayoutWindow {
   status     PayoutWindowStatus @default(OPEN)
 
   @@index([workspaceId])
+}
+
+model Poll {
+  id               String               @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace            @relation(fields: [workspaceId], references: [id])
+  createdById      String
+  createdBy        User                 @relation("PollsCreated", fields: [createdById], references: [id])
+  kind             PollKind             @default(POLL)
+  title            String
+  description      String?
+  multiSelect      Boolean              @default(false)
+  startsAt         DateTime
+  endsAt           DateTime
+  resultVisibility PollResultVisibility @default(AUTO_AFTER_END)
+  resultsVisible   Boolean              @default(false)
+  closedAt         DateTime?
+  createdAt        DateTime             @default(now())
+  options          PollOption[]
+  votes            PollVote[]
+
+  @@index([workspaceId])
+  @@index([endsAt])
+}
+
+model PollOption {
+  id           String     @id @default(cuid())
+  pollId       String
+  poll         Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label        String
+  optionUserId String?
+  optionUser   User?      @relation("AwardPollOptions", fields: [optionUserId], references: [id])
+  sortOrder    Int        @default(0)
+  votes        PollVote[]
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id        String     @id @default(cuid())
+  pollId    String
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation("PollVotes", fields: [userId], references: [id])
+  createdAt DateTime   @default(now())
+
+  @@unique([pollId, userId, optionId])
+  @@index([pollId])
+  @@index([userId])
+}
+
+model WorkspaceEvent {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id])
+  createdById   String
+  createdBy     User          @relation("WorkspaceEventsCreated", fields: [createdById], references: [id])
+  title         String
+  description   String?
+  location      String?
+  venue         String?
+  coverImageUrl String?
+  linkUrl       String?
+  startsAt      DateTime
+  endsAt        DateTime?
+  createdAt     DateTime      @default(now())
+  rsvps         EventRsvp[]
+  comments      EventComment[]
+
+  @@index([workspaceId])
+  @@index([startsAt])
+}
+
+model EventRsvp {
+  eventId   String
+  userId    String
+  status    RsvpStatus
+  createdAt DateTime       @default(now())
+  event     WorkspaceEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User           @relation("EventRsvps", fields: [userId], references: [id])
+
+  @@id([eventId, userId])
+  @@index([eventId])
+}
+
+model EventComment {
+  id        String         @id @default(cuid())
+  eventId   String
+  userId    String
+  message   String
+  createdAt DateTime       @default(now())
+  event     WorkspaceEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User           @relation("EventComments", fields: [userId], references: [id])
+
+  @@index([eventId])
 }

@@ -39,6 +39,8 @@ export default async function AdminLayout({
   }
 
   return (
-    <AppShell isAdmin>{children}</AppShell>
+    <AppShell isAdmin role={session.user.role}>
+      {children}
+    </AppShell>
   );
 }
