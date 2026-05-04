@@ -13,6 +13,8 @@ const bodySchema = z.object({
   createdBefore: z.string().datetime().optional(),
   /** Only recognitions created strictly after this instant (ISO 8601). */
   createdAfter: z.string().datetime().optional(),
+  /** When set, only these recognition rows are considered (must belong to your workspace and have slackTs null). */
+  recognitionIds: z.array(z.string().min(1)).max(100).optional(),
 });
 
 export const POST = requireAdmin(async (request, _context, session) => {
@@ -32,30 +34,54 @@ export const POST = requireAdmin(async (request, _context, session) => {
       );
     }
 
-    const createdAt: Prisma.DateTimeFilter = {};
-    if (body.createdBefore) {
-      createdAt.lt = new Date(body.createdBefore);
-    }
-    if (body.createdAfter) {
-      createdAt.gt = new Date(body.createdAfter);
-    }
+    const requestedIds = body.recognitionIds?.length
+      ? [...new Set(body.recognitionIds)].slice(0, 100)
+      : null;
 
-    const candidates = await prisma.recognition.findMany({
-      where: {
-        workspaceId,
-        slackTs: null,
-        ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
-      },
-      select: { id: true, createdAt: true },
-      orderBy: { createdAt: "asc" },
-      take: body.limit,
-    });
+    let candidates: { id: string; createdAt: Date }[];
+    let notQueued: string[] = [];
+
+    if (requestedIds) {
+      const found = await prisma.recognition.findMany({
+        where: {
+          workspaceId,
+          slackTs: null,
+          id: { in: requestedIds },
+        },
+        select: { id: true, createdAt: true },
+      });
+      const foundSet = new Set(found.map((r) => r.id));
+      notQueued = requestedIds.filter((id) => !foundSet.has(id));
+      candidates = requestedIds
+        .map((id) => found.find((r) => r.id === id))
+        .filter((r): r is { id: string; createdAt: Date } => r !== undefined);
+    } else {
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (body.createdBefore) {
+        createdAt.lt = new Date(body.createdBefore);
+      }
+      if (body.createdAfter) {
+        createdAt.gt = new Date(body.createdAfter);
+      }
+
+      candidates = await prisma.recognition.findMany({
+        where: {
+          workspaceId,
+          slackTs: null,
+          ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+        },
+        select: { id: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+        take: body.limit,
+      });
+    }
 
     if (body.dryRun) {
       return success({
         dryRun: true,
         queued: candidates.length,
         recognitionIds: candidates.map((c) => c.id),
+        ...(notQueued.length ? { notQueuedReasonUnknownOrAlreadyPosted: notQueued } : {}),
       });
     }
 
@@ -77,6 +103,7 @@ export const POST = requireAdmin(async (request, _context, session) => {
       attempted: candidates.length,
       channelPosted,
       channelFailed,
+      ...(notQueued.length ? { skippedIds: notQueued } : {}),
       note:
         "Rows with channelFailed still have slackTs null (Slack error, missing channel, or rate limit). Safe to run again. Recognitions that were already posted to Slack before slackTs was tracked may still have slackTs null and can duplicate if backfilled—use createdBefore/createdAfter to narrow the window.",
     });
