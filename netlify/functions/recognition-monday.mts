@@ -71,9 +71,25 @@ export default async () => {
           },
           select: { coinsToGive: true },
         });
+        const values = await prisma.companyValue.findMany({
+          where: {
+            workspaceId: workspace.id,
+            isActive: true,
+          },
+          select: {
+            name: true,
+            emoji: true,
+          },
+          orderBy: { name: "asc" },
+        });
 
         const aggregateCoins = users.reduce((sum, user) => sum + user.coinsToGive, 0);
-        const text = `Recognition Monday is live. There are ${aggregateCoins} coins available across the team this week.`;
+        const valuesList = values.map((value) => `${value.emoji} ${value.name}`).join(" • ");
+        const valuesText =
+          valuesList.length > 0
+            ? `This week's values: ${valuesList}`
+            : "Pick the value that best matches the impact you want to celebrate.";
+        const text = `It is Recognition Monday on Spotcoin 🎉 You have ${aggregateCoins} Spot Tokens ready to spread this week. Who made your workday better?\n${valuesText}`;
 
         const client = new WebClient(decrypt(installation.botToken));
         await client.chat.postMessage({
@@ -84,8 +100,23 @@ export default async () => {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `*Recognition Monday* :coin:\n${text}`,
+                text: `*Recognition Monday* 🎉\n${text}`,
               },
+            },
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "Submit Recognition",
+                    emoji: true,
+                  },
+                  action_id: "open_recognition_modal",
+                  value: "open_recognition_modal",
+                },
+              ],
             },
           ],
         });
