@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { buildRecognitionModal } from "@/lib/slack/messageBuilder";
 import { getTokenForTeam } from "@/lib/slack/tokenStore";
+import { tryLinkSlackUserFromProfile } from "@/lib/slack/tryLinkSlackUser";
 import { recognitionService } from "@/lib/services/recognitionService";
 import { verifySlackSignature } from "@/lib/slack/verifySignature";
 
@@ -10,27 +11,66 @@ function getTeamIdFromPayload(payload: any): string | undefined {
 
 type OpenModalResult = { ok: true } | { ok: false; reason: string };
 
+function reasonForLinkFailure(code: "no_slack_email" | "no_spotcoin_user_for_email" | "account_has_other_slack"): string {
+  switch (code) {
+    case "no_slack_email":
+      return "Slack did not share an email on your profile. Add a verified email in Slack (Profile → Contact information), then try again.";
+    case "account_has_other_slack":
+      return "This Spotcoin account is already linked to a different Slack member. Ask an admin if you need help.";
+    case "no_spotcoin_user_for_email":
+    default:
+      return "No Spotcoin user matches your Slack email. Sign in at Spotcoin with the same email your admin invited, then try again.";
+  }
+}
+
 async function openRecognitionModal(teamId: string, slackUserId: string, triggerId: string): Promise<OpenModalResult> {
   const workspace = await prisma.workspace.findUnique({ where: { slackTeamId: teamId }, select: { id: true } });
   if (!workspace) {
     return { ok: false, reason: "Spotcoin is not connected for this Slack workspace." };
   }
 
-  const [user, values] = await Promise.all([
-    prisma.user.findFirst({
-      where: {
-        workspaceId: workspace.id,
-        slackUserId,
-        deletedAt: null,
-      },
-      select: { coinsToGive: true },
-    }),
-    prisma.companyValue.findMany({
-      where: { workspaceId: workspace.id, isActive: true },
-      select: { id: true, name: true, emoji: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  let token: string;
+  try {
+    token = await getTokenForTeam(teamId);
+  } catch {
+    return { ok: false, reason: "Spotcoin Slack bot is not installed for this workspace." };
+  }
+
+  const { WebClient } = await import("@slack/web-api");
+  const client = new WebClient(token);
+
+  let user = await prisma.user.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      slackUserId,
+      deletedAt: null,
+    },
+    select: { coinsToGive: true },
+  });
+
+  if (!user) {
+    try {
+      const link = await tryLinkSlackUserFromProfile(workspace.id, slackUserId, client);
+      if (!link.ok) {
+        return { ok: false, reason: reasonForLinkFailure(link.code) };
+      }
+      user = await prisma.user.findFirst({
+        where: {
+          workspaceId: workspace.id,
+          slackUserId,
+          deletedAt: null,
+        },
+        select: { coinsToGive: true },
+      });
+    } catch (err) {
+      console.error("Slack tryLinkSlackUserFromProfile failed", err);
+      return {
+        ok: false,
+        reason: "Could not verify your Slack profile. Please try again or use `/spotcoin`.",
+      };
+    }
+  }
+
   if (!user) {
     return {
       ok: false,
@@ -38,6 +78,12 @@ async function openRecognitionModal(teamId: string, slackUserId: string, trigger
         "Your Slack account is not linked to Spotcoin yet. Sign in at Spotcoin with the same email your admin invited, then try again.",
     };
   }
+
+  const values = await prisma.companyValue.findMany({
+    where: { workspaceId: workspace.id, isActive: true },
+    select: { id: true, name: true, emoji: true },
+    orderBy: { name: "asc" },
+  });
   if (values.length === 0) {
     return {
       ok: false,
@@ -46,9 +92,6 @@ async function openRecognitionModal(teamId: string, slackUserId: string, trigger
   }
 
   try {
-    const token = await getTokenForTeam(teamId);
-    const { WebClient } = await import("@slack/web-api");
-    const client = new WebClient(token);
     await client.views.open({
       trigger_id: triggerId,
       view: buildRecognitionModal(values, user.coinsToGive, slackUserId) as any,
@@ -78,6 +121,16 @@ async function postEphemeralToResponseUrl(responseUrl: string, text: string) {
   }
 }
 
+class SlackSubmitRecognitionError extends Error {
+  constructor(
+    message: string,
+    readonly field: "message_block" | "recipient_block",
+  ) {
+    super(message);
+    this.name = "SlackSubmitRecognitionError";
+  }
+}
+
 async function handleSubmitRecognition(payload: any) {
   const teamId: string | undefined = getTeamIdFromPayload(payload);
   const senderSlackId: string | undefined = payload.user?.id;
@@ -89,11 +142,39 @@ async function handleSubmitRecognition(payload: any) {
   });
   if (!workspace) return;
 
-  const sender = await prisma.user.findFirst({
+  let token: string;
+  try {
+    token = await getTokenForTeam(teamId);
+  } catch {
+    throw new SlackSubmitRecognitionError(
+      "Slack bot is not installed for this workspace.",
+      "message_block",
+    );
+  }
+
+  const { WebClient } = await import("@slack/web-api");
+  const client = new WebClient(token);
+
+  let sender = await prisma.user.findFirst({
     where: { workspaceId: workspace.id, slackUserId: senderSlackId, deletedAt: null },
     select: { id: true, name: true, username: true, email: true },
   });
-  if (!sender) return;
+  if (!sender) {
+    const link = await tryLinkSlackUserFromProfile(workspace.id, senderSlackId, client);
+    if (!link.ok) {
+      throw new SlackSubmitRecognitionError(reasonForLinkFailure(link.code), "message_block");
+    }
+    sender = await prisma.user.findFirst({
+      where: { workspaceId: workspace.id, slackUserId: senderSlackId, deletedAt: null },
+      select: { id: true, name: true, username: true, email: true },
+    });
+  }
+  if (!sender) {
+    throw new SlackSubmitRecognitionError(
+      "Your Slack account is not linked to Spotcoin. Use the same email as your invite, then try again.",
+      "message_block",
+    );
+  }
 
   const recipientSlackId = payload.view?.state?.values?.recipient_block?.recipient?.selected_user;
   const message = payload.view?.state?.values?.message_block?.message?.value;
@@ -101,11 +182,29 @@ async function handleSubmitRecognition(payload: any) {
   const coinAmountRaw = payload.view?.state?.values?.coin_block?.coin_amount?.selected_option?.value;
   if (!recipientSlackId || !message || !valueId || !coinAmountRaw) return;
 
-  const recipient = await prisma.user.findFirst({
+  let recipient = await prisma.user.findFirst({
     where: { workspaceId: workspace.id, slackUserId: recipientSlackId, deletedAt: null },
     select: { id: true, name: true, username: true, email: true, slackUserId: true },
   });
-  if (!recipient) return;
+  if (!recipient) {
+    const link = await tryLinkSlackUserFromProfile(workspace.id, recipientSlackId, client);
+    if (!link.ok) {
+      throw new SlackSubmitRecognitionError(
+        "That teammate is not on Spotcoin yet, or their Slack email does not match their invite. Ask them to join or fix their Slack email.",
+        "recipient_block",
+      );
+    }
+    recipient = await prisma.user.findFirst({
+      where: { workspaceId: workspace.id, slackUserId: recipientSlackId, deletedAt: null },
+      select: { id: true, name: true, username: true, email: true, slackUserId: true },
+    });
+  }
+  if (!recipient) {
+    throw new SlackSubmitRecognitionError(
+      "Could not resolve the selected teammate in Spotcoin.",
+      "recipient_block",
+    );
+  }
 
   const coinAmount = Number(coinAmountRaw);
   await recognitionService.send(sender.id, {
@@ -164,6 +263,18 @@ export async function POST(request: Request) {
       await handleSubmitRecognition(payload);
     } catch (err) {
       console.error("Slack interaction submit handler failed", err);
+      if (err instanceof SlackSubmitRecognitionError) {
+        return new Response(
+          JSON.stringify({
+            response_action: "errors",
+            errors: { [err.field]: err.message },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
       return new Response(
         JSON.stringify({
           response_action: "errors",

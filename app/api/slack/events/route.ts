@@ -2,6 +2,7 @@ import { WebClient } from "@slack/web-api";
 import { prisma } from "@/lib/db";
 import { publicFeedDisplayName } from "@/lib/publicDisplayName";
 import { getTokenForTeam } from "@/lib/slack/tokenStore";
+import { tryLinkSlackUserFromProfile } from "@/lib/slack/tryLinkSlackUser";
 import { verifySlackSignature } from "@/lib/slack/verifySignature";
 import { buildHomeView } from "@/lib/slack/homeView";
 
@@ -17,7 +18,15 @@ async function handleAppHomeOpened(payload: any) {
   });
   if (!workspace) return;
 
-  const user = await prisma.user.findFirst({
+  let token: string;
+  try {
+    token = await getTokenForTeam(teamId);
+  } catch {
+    return;
+  }
+  const client = new WebClient(token);
+
+  let user = await prisma.user.findFirst({
     where: {
       workspaceId: workspace.id,
       slackUserId,
@@ -36,10 +45,32 @@ async function handleAppHomeOpened(payload: any) {
       },
     },
   });
+  if (!user) {
+    const link = await tryLinkSlackUserFromProfile(workspace.id, slackUserId, client);
+    if (link.ok) {
+      user = await prisma.user.findFirst({
+        where: {
+          workspaceId: workspace.id,
+          slackUserId,
+          deletedAt: null,
+        },
+        select: {
+          coinsToGive: true,
+          spotTokensEarned: true,
+          sentRecognitions: {
+            take: 3,
+            orderBy: { createdAt: "desc" },
+            include: {
+              recipient: { select: { username: true, email: true } },
+              value: { select: { emoji: true, name: true } },
+            },
+          },
+        },
+      });
+    }
+  }
   if (!user) return;
 
-  const token = await getTokenForTeam(teamId);
-  const client = new WebClient(token);
   const recent = user.sentRecognitions.map((item) => ({
     text: `${item.value.emoji} → ${publicFeedDisplayName(item.recipient)} · ${item.coinAmount} coin(s)`,
   }));
@@ -76,9 +107,11 @@ export async function POST(request: Request) {
   }
 
   if (payload.event?.type === "app_home_opened") {
-    void handleAppHomeOpened(payload).catch((err) => {
+    try {
+      await handleAppHomeOpened(payload);
+    } catch (err) {
       console.error("Slack app_home_opened handler failed", err);
-    });
+    }
   }
 
   return new Response("ok", { status: 200 });
