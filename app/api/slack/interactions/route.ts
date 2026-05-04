@@ -5,28 +5,30 @@ import { recognitionService } from "@/lib/services/recognitionService";
 import { sendPublicPost, sendRecipientDM } from "@/lib/slack/notifier";
 import { verifySlackSignature } from "@/lib/slack/verifySignature";
 
+function getTeamIdFromPayload(payload: any): string | undefined {
+  return payload?.team?.id ?? payload?.user?.team_id ?? payload?.view?.team_id;
+}
+
 async function openRecognitionModal(teamId: string, slackUserId: string, triggerId: string) {
-  const workspace = await prisma.workspace.findUnique({
-    where: { slackTeamId: teamId },
-    select: { id: true },
-  });
+  const workspace = await prisma.workspace.findUnique({ where: { slackTeamId: teamId }, select: { id: true } });
   if (!workspace) return;
 
-  const user = await prisma.user.findFirst({
-    where: {
-      workspaceId: workspace.id,
-      slackUserId,
-      deletedAt: null,
-    },
-    select: { coinsToGive: true },
-  });
-  if (!user) return;
-
-  const values = await prisma.companyValue.findMany({
-    where: { workspaceId: workspace.id, isActive: true },
-    select: { id: true, name: true, emoji: true },
-    orderBy: { name: "asc" },
-  });
+  const [user, values] = await Promise.all([
+    prisma.user.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        slackUserId,
+        deletedAt: null,
+      },
+      select: { coinsToGive: true },
+    }),
+    prisma.companyValue.findMany({
+      where: { workspaceId: workspace.id, isActive: true },
+      select: { id: true, name: true, emoji: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+  if (!user || values.length === 0) return;
 
   const token = await getTokenForTeam(teamId);
   const { WebClient } = await import("@slack/web-api");
@@ -38,7 +40,7 @@ async function openRecognitionModal(teamId: string, slackUserId: string, trigger
 }
 
 async function handleSubmitRecognition(payload: any) {
-  const teamId: string | undefined = payload.team?.id;
+  const teamId: string | undefined = getTeamIdFromPayload(payload);
   const senderSlackId: string | undefined = payload.user?.id;
   if (!teamId || !senderSlackId) return;
 
@@ -109,7 +111,7 @@ export async function POST(request: Request) {
   if (payload.type === "block_actions") {
     const action = payload.actions?.[0];
     if (action?.action_id === "open_recognition_modal") {
-      const teamId: string | undefined = payload.team?.id;
+      const teamId: string | undefined = getTeamIdFromPayload(payload);
       const slackUserId: string | undefined = payload.user?.id;
       const triggerId: string | undefined = payload.trigger_id;
       if (teamId && slackUserId && triggerId) {

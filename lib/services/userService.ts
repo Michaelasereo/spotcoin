@@ -6,9 +6,11 @@ import { prisma } from "@/lib/db";
 import { resendFromAddress } from "@/lib/resendFrom";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { hashResetToken } from "@/lib/services/passwordResetService";
 import { recognitionService, type RecognitionHistoryFilters } from "@/lib/services/recognitionService";
 
 const resendClient = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+const INVITE_LINK_TTL_HOURS = 72;
 
 async function assertAdminAccess(adminId: string, workspaceId: string) {
   const admin = await prisma.user.findFirst({
@@ -134,9 +136,15 @@ export const userService = {
 
   async invite(adminId: string, email: string, workspaceId: string) {
     await assertAdminAccess(adminId, workspaceId);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new AppError("Email is required", "VALIDATION_ERROR", 400);
+    }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: { equals: normalizedEmail, mode: "insensitive" },
+      },
       select: { id: true },
     });
 
@@ -149,8 +157,8 @@ export const userService = {
 
     const createdUser = await prisma.user.create({
       data: {
-        email,
-        name: email.split("@")[0] || "New User",
+        email: normalizedEmail,
+        name: normalizedEmail.split("@")[0] || "New User",
         passwordHash,
         role: "EMPLOYEE",
         workspaceId,
@@ -164,13 +172,44 @@ export const userService = {
       },
     });
 
+    const rawInviteToken = randomBytes(32).toString("base64url");
+    const inviteTokenHash = hashResetToken(rawInviteToken);
+    const inviteExpiresAt = new Date(Date.now() + INVITE_LINK_TTL_HOURS * 60 * 60 * 1000);
+
+    await prisma.passwordResetToken.deleteMany({ where: { userId: createdUser.id } });
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: createdUser.id,
+        tokenHash: inviteTokenHash,
+        expiresAt: inviteExpiresAt,
+      },
+      select: { id: true },
+    });
+
+    const inviteUrl = `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawInviteToken)}`;
+
     if (resendClient) {
-      await resendClient.emails.send({
-        from: resendFromAddress(),
-        to: email,
-        subject: "You're invited to Spotcoin",
-        text: `You've been invited to Spotcoin. Temporary password: ${temporaryPassword}`,
-      });
+      try {
+        await resendClient.emails.send({
+          from: resendFromAddress(),
+          to: normalizedEmail,
+          subject: "You're invited to Spotcoin",
+          text: [
+            "You've been invited to Spotcoin.",
+            "",
+            `Set your password to activate your account (expires in ${INVITE_LINK_TTL_HOURS} hours):`,
+            inviteUrl,
+            "",
+            "If you were not expecting this invite, you can ignore this email.",
+          ].join("\n"),
+        });
+      } catch (err) {
+        await prisma.user.delete({ where: { id: createdUser.id } }).catch(() => {});
+        console.error("[invite] Failed to send invite email", err);
+        throw new AppError("Could not send invite email. Please try again.", "INVITE_EMAIL_FAILED", 502);
+      }
+    } else {
+      console.warn("[invite] RESEND_API_KEY not set; created user without sending invite email");
     }
 
     return createdUser;

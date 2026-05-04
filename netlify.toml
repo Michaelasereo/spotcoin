@@ -5,7 +5,8 @@
 # Prefer Git-triggered builds on Netlify if CLI uploads keep stalling.
 
 [build]
-  command = "npx prisma migrate deploy && npm run build"
+  # Temporary: skip Prisma migrate during deploy while DB connectivity is unstable.
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "20"
