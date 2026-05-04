@@ -1,9 +1,11 @@
 # Secrets and URLs: set in Netlify UI (DATABASE_URL, DIRECT_URL, NEXTAUTH_*, etc.)
+#
+# Deploy reliability: do NOT set "Publish directory" to `.next` in the Netlify UI — leave it empty so
+# @netlify/plugin-nextjs owns output. Stale local `.netlify/` can make CLI uploads hang; `npm run deploy` clears it first.
+# Prefer Git-triggered builds on Netlify if CLI uploads keep stalling.
 
 [build]
   command = "npm run build"
-  # Non-interactive `netlify deploy` needs a publish dir. Use `.` so @netlify/plugin-nextjs can own output — never set this to `.next` (breaks SSR).
-  publish = "."
 
 [build.environment]
   NODE_VERSION = "20"
@@ -13,8 +15,3 @@
 
 [functions]
   directory = "netlify/functions"
-  # Prisma engines must ship in the Lambda bundle (especially when bundling traces a subset of node_modules).
-  included_files = [
-    "node_modules/.prisma/client/**",
-    "node_modules/@prisma/client/**",
-  ]

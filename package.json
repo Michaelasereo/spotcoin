@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build && node scripts/copy-prisma-engines.mjs",
+    "build": "prisma generate && next build",
+    "deploy": "rm -rf .netlify && prisma generate && netlify deploy --prod --build --skip-functions-cache",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -14,6 +15,7 @@
   },
   "dependencies": {
     "@netlify/functions": "^4.2.9",
+    "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -28,6 +30,7 @@
     "lucide-react": "^0.542.0",
     "next": "^16.2.4",
     "next-auth": "^5.0.0-beta.30",
+    "pg": "^8.20.0",
     "prisma": "^6.19.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -41,6 +44,7 @@
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.2.14",
     "@types/sanitize-html": "^2.16.1",
     "autoprefixer": "^10.5.0",

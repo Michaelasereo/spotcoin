@@ -8,6 +8,8 @@ import { AppError } from "@/lib/errors";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: env.NEXTAUTH_SECRET,
+  /** Required on Netlify (and other reverse proxies) so sign-in does not redirect to `/api/auth/error`. */
+  trustHost: true,
   session: { strategy: "jwt" },
   providers: [
     Credentials({
@@ -23,26 +25,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
-
-        if (!user || user.deletedAt) {
+        const emailTrimmed = email.trim();
+        if (!emailTrimmed || !password) {
           return null;
         }
 
-        const isPasswordValid = await compare(password, user.passwordHash);
-        if (!isPasswordValid) {
+        try {
+          const user = await prisma.user.findFirst({
+            where: {
+              email: { equals: emailTrimmed, mode: "insensitive" },
+              deletedAt: null,
+            },
+          });
+
+          if (!user) {
+            return null;
+          }
+
+          const isPasswordValid = await compare(password, user.passwordHash);
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            workspaceId: user.workspaceId,
+          };
+        } catch (err) {
+          if (process.env.SPOTCOIN_LAUNCH_DEBUG === "1") {
+            console.error("[auth.authorize]", err instanceof Error ? err.message : err);
+          }
           return null;
         }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          workspaceId: user.workspaceId,
-        };
       },
     }),
   ],

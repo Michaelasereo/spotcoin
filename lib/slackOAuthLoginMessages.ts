@@ -4,7 +4,7 @@ export function getSlackOAuthLoginMessage(status: string | null): string | null 
 
   const messages: Record<string, string> = {
     invalid_state:
-      "Slack could not verify this connection (expired link, wrong secret, or mismatched site URL). Sign in, then in Admin → Settings use Connect Slack again. Check Netlify: NEXT_PUBLIC_APP_URL and SLACK_STATE_SECRET match Slack redirect URLs.",
+      "This install link did not come from Spotcoin (missing signed state), or the link expired. Do not paste Slack’s oauth/authorize URL from the Slack API site. Sign in as an admin, open Admin → Settings, and use Connect Slack. If you already did, check Netlify: NEXT_PUBLIC_APP_URL (https) and SLACK_STATE_SECRET match your Slack app redirect URL.",
     oauth_denied: "Slack connection was cancelled.",
     oauth_failed: "Something went wrong connecting Slack. Try again from Admin → Settings.",
     missing_code: "Slack did not return an authorization code. Try Connect Slack again.",

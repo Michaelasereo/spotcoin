@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { resendFromAddress } from "@/lib/resendFrom";
 
 const TOKEN_BYTES = 32;
 const RESET_LINK_TTL_HOURS = 1;
@@ -59,7 +60,7 @@ export const passwordResetService = {
 
     try {
       await resendClient.emails.send({
-        from: "Spotcoin <onboarding@resend.dev>",
+        from: resendFromAddress(),
         to: user.email,
         subject: "Reset your Spotcoin password",
         text: [

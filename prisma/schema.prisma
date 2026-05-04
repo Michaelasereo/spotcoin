@@ -1,7 +1,5 @@
 generator client {
-  provider      = "prisma-client-js"
-  // Netlify Lambdas: older runtimes use rhel-openssl-1.0.x; newer use rhel-openssl-3.0.x. "native" = local dev.
-  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {

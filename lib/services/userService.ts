@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { Resend } from "resend";
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { resendFromAddress } from "@/lib/resendFrom";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
 import { recognitionService, type RecognitionHistoryFilters } from "@/lib/services/recognitionService";
@@ -134,7 +135,7 @@ export const userService = {
 
     if (resendClient) {
       await resendClient.emails.send({
-        from: "Spotcoin <onboarding@resend.dev>",
+        from: resendFromAddress(),
         to: email,
         subject: "You're invited to Spotcoin",
         text: `You've been invited to Spotcoin. Temporary password: ${temporaryPassword}`,

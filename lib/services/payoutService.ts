@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { resendFromAddress } from "@/lib/resendFrom";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
@@ -152,7 +153,7 @@ export const payoutService = {
 
     if (resendClient) {
       await resendClient.emails.send({
-        from: "Spotcoin <onboarding@resend.dev>",
+        from: resendFromAddress(),
         to: user.email,
         subject: "Your Spotcoin payout is complete",
         text: `Hi ${user.name}, your payout of ₦${(

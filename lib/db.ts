@@ -1,39 +1,30 @@
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   prismaUrl?: string;
 };
 
-function withPgBouncerParams(url: string | undefined) {
-  if (!url) return undefined;
-  if (url.includes("pgbouncer=true") || url.includes("statement_cache_size=0")) {
-    return url;
+function connectionStringOrPlaceholder() {
+  const url = process.env.DATABASE_URL;
+  if (url) return url;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("DATABASE_URL is required to initialize Prisma with the PostgreSQL driver adapter.");
   }
-
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}pgbouncer=true&statement_cache_size=0`;
+  // `next build` may load modules that import `prisma` without a local `.env`; no queries run until runtime.
+  return "postgresql://prisma:prisma@127.0.0.1:5432/prisma";
 }
 
 function createPrismaClient() {
-  const pooledUrl = withPgBouncerParams(process.env.DATABASE_URL);
-  const runtimeUrl = pooledUrl;
-
-  if (!runtimeUrl) {
-    return new PrismaClient();
-  }
-
-  // App runtime uses pooled URL; pgBouncer-safe params prevent prepared statement errors.
-  return new PrismaClient({
-    datasources: {
-      db: {
-        url: runtimeUrl,
-      },
-    },
-  });
+  const connectionString = connectionStringOrPlaceholder();
+  const pool = new Pool({ connectionString });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter });
 }
 
-const runtimeUrlKey = withPgBouncerParams(process.env.DATABASE_URL) || "default";
+const runtimeUrlKey = process.env.DATABASE_URL || connectionStringOrPlaceholder();
 
 if (!globalForPrisma.prisma || globalForPrisma.prismaUrl !== runtimeUrlKey) {
   globalForPrisma.prisma = createPrismaClient();

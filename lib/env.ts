@@ -21,6 +21,8 @@ const envSchema = z.object({
   SLACK_CLIENT_ID: optionalString,
   SLACK_CLIENT_SECRET: optionalString,
   RESEND_API_KEY: optionalString,
+  /** Full Resend "from", e.g. `Spotcoin <noreply@yourdomain.com>` (domain must be verified in Resend). */
+  RESEND_FROM: optionalString,
   REDIS_URL: optionalString,
   NEXT_PUBLIC_SUPPORT_EMAIL: optionalEmail,
 });

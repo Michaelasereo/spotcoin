@@ -43,9 +43,16 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+const authMock = vi.fn();
+
+vi.mock("@/lib/auth", () => ({
+  auth: () => authMock(),
+}));
+
 describe("Slack OAuth callback route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authMock.mockResolvedValue(null);
     oauthAccessMock.mockResolvedValue({
       team: { id: "T123", name: "Team A" },
       access_token: "xoxb-token",
@@ -63,7 +70,7 @@ describe("Slack OAuth callback route", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/admin/settings?slack=oauth_denied",
+      "http://localhost:3000/login?slack=oauth_denied&redirect=%2Fapi%2Fslack%2Foauth%2Fstart",
     );
   });
 
@@ -72,13 +79,28 @@ describe("Slack OAuth callback route", () => {
     const response = await GET(new Request("http://localhost:3000/api/slack/oauth/callback?state=abc"));
 
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/admin/settings?slack=missing_code",
+      "http://localhost:3000/login?slack=missing_code&redirect=%2Fapi%2Fslack%2Foauth%2Fstart",
     );
   });
 
-  it("redirects invalid_state when state verification fails", async () => {
+  it("redirects invalid_state to login when there is no admin session", async () => {
     const { verifySlackOAuthState } = await import("@/lib/slack/oauthState");
     vi.mocked(verifySlackOAuthState).mockReturnValue(null);
+
+    const { GET } = await import("./route");
+    const response = await GET(
+      new Request("http://localhost:3000/api/slack/oauth/callback?code=abc&state=bad"),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/login?slack=invalid_state&redirect=%2Fapi%2Fslack%2Foauth%2Fstart",
+    );
+  });
+
+  it("redirects invalid_state to admin settings when an admin session exists", async () => {
+    const { verifySlackOAuthState } = await import("@/lib/slack/oauthState");
+    vi.mocked(verifySlackOAuthState).mockReturnValue(null);
+    authMock.mockResolvedValue({ user: { id: "u1", role: "ADMIN" } });
 
     const { GET } = await import("./route");
     const response = await GET(
@@ -105,6 +127,11 @@ describe("Slack OAuth callback route", () => {
 
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/admin/settings?slack=connected",
+    );
+    expect(oauthAccessMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        redirect_uri: "http://localhost:3000/api/slack/oauth/callback",
+      }),
     );
     expect(findWorkspaceMock).toHaveBeenCalled();
     expect(updateWorkspaceMock).toHaveBeenCalled();

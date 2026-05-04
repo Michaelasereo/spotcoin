@@ -1,6 +1,8 @@
 const fs = require("fs");
+const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("@prisma/client");
 const { hash } = require("bcryptjs");
+const { Pool } = require("pg");
 
 function loadEnvLocal() {
   const path = ".env.local";
@@ -65,7 +67,12 @@ async function ensureDefaultPositions(prisma, workspaceId) {
 async function main() {
   loadEnvLocal();
 
-  const prisma = new PrismaClient();
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required (e.g. in .env.local).");
+  }
+
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
     const passwordHash = await hash("password123", 12);
 
@@ -133,6 +140,7 @@ async function main() {
     );
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 
