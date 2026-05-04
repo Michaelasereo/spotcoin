@@ -2,6 +2,8 @@
 
 [build]
   command = "npm run build"
+  # Non-interactive `netlify deploy` needs a publish dir. Use `.` so @netlify/plugin-nextjs can own output — never set this to `.next` (breaks SSR).
+  publish = "."
 
 [build.environment]
   NODE_VERSION = "20"
