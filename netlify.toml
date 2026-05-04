@@ -1,3 +1,5 @@
+# Netlify site ID: 8ace60f2-3284-4523-8ee8-29aaa0433051 (`npm run deploy` uses --site; see package.json).
+#
 # Secrets and URLs: set in Netlify UI (DATABASE_URL, DIRECT_URL, NEXTAUTH_*, etc.)
 #
 # Deploy reliability: do NOT set "Publish directory" to `.next` in the Netlify UI — leave it empty so

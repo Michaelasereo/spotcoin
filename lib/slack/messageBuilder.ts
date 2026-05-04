@@ -87,7 +87,7 @@ export function buildRecipientDM(
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `🎉 *${sender.name}* recognized *${recipient.name}* with *${recognition.coinAmount}* coin(s).`,
+        text: `🎉 *${sender.name}* recognized *${recipient.name}* with *${recognition.coinAmount} Spot Token${recognition.coinAmount === 1 ? "" : "s"}*.`,
       },
     },
     {
@@ -103,16 +103,19 @@ export function buildRecipientDM(
 
 export function buildPublicPost(
   sender: { name: string },
-  recipient: { name: string },
+  recipient: { name: string; slackUserId?: string | null },
   recognition: { message: string; coinAmount: number },
   value: { name: string; emoji: string },
 ) {
+  const valueLabel = value.name.trim() || "our values";
+  const recipientLabel = recipient.slackUserId ? `<@${recipient.slackUserId}>` : `*${recipient.name}*`;
+
   return [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `🪙 *${sender.name}* recognized *${recipient.name}* with *${recognition.coinAmount}* coin(s)!`,
+        text: `🎉 Big shoutout to ${recipientLabel} for living our value(s): *${valueLabel}* 👏`,
       },
     },
     {
@@ -121,7 +124,12 @@ export function buildPublicPost(
     },
     {
       type: "context",
-      elements: [{ type: "mrkdwn", text: `${value.emoji} ${value.name}` }],
+      elements: [
+        {
+          type: "mrkdwn",
+          text: "Keep being the reason our team grows and embodies our core values. ✨",
+        },
+      ],
     },
   ];
 }

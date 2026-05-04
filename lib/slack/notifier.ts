@@ -11,7 +11,7 @@ type WorkspaceSlackContext = {
 export async function sendPublicPost(
   recognition: { message: string; coinAmount: number },
   sender: { name: string },
-  recipient: { name: string },
+  recipient: { name: string; slackUserId?: string | null },
   value: { name: string; emoji: string },
   workspace: WorkspaceSlackContext,
 ): Promise<string | null> {

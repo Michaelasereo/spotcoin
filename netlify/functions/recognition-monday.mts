@@ -64,43 +64,29 @@ export default async () => {
           continue;
         }
 
-        const users = await prisma.user.findMany({
-          where: {
-            workspaceId: workspace.id,
-            deletedAt: null,
-          },
-          select: { coinsToGive: true },
-        });
-        const values = await prisma.companyValue.findMany({
-          where: {
-            workspaceId: workspace.id,
-            isActive: true,
-          },
-          select: {
-            name: true,
-            emoji: true,
-          },
-          orderBy: { name: "asc" },
-        });
-
-        const aggregateCoins = users.reduce((sum, user) => sum + user.coinsToGive, 0);
-        const valuesList = values.map((value) => `${value.emoji} ${value.name}`).join(" • ");
-        const valuesText =
-          valuesList.length > 0
-            ? `This week's values: ${valuesList}`
-            : "Pick the value that best matches the impact you want to celebrate.";
-        const text = `It is Recognition Monday on Spotcoin 🎉 You have ${aggregateCoins} Spot Tokens ready to spread this week. Who made your workday better?\n${valuesText}`;
+        const body = [
+          "Hey <!channel> 🎉",
+          "",
+          "It's Recognition Monday — time to shout out someone who made a difference last week.",
+          "",
+          "Who made your workday better? From going above and beyond to just being solid day in, day out — recognition is for all of it.",
+          "",
+          "👀 *Reminders*",
+          "• Pick the value that best matches the impact you want to celebrate",
+          "• Unused coins expire at month-end",
+          "• Recognition takes less than 60 seconds",
+        ].join("\n");
 
         const client = new WebClient(decrypt(installation.botToken));
         await client.chat.postMessage({
           channel: workspace.targetChannelId,
-          text,
+          text: "It's Recognition Monday — time to shout out someone who made a difference last week.",
           blocks: [
             {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `*Recognition Monday* 🎉\n${text}`,
+                text: body,
               },
             },
             {

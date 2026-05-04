@@ -28,6 +28,8 @@ export default async function DashboardPage() {
     where: { id: session.user.id },
     select: {
       name: true,
+      email: true,
+      username: true,
       coinsToGive: true,
       spotTokensEarned: true,
       workspace: {
@@ -43,7 +45,10 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const username = user.username?.trim();
   const firstName = user.name.split(" ")[0] || user.name;
+  const fallbackFromEmail = user.email.split("@")[0] || user.email;
+  const heroName = username || firstName || fallbackFromEmail;
   const projectedValue = user.spotTokensEarned * user.workspace.tokenValueNaira;
   const today = new Date();
   const monthName = today.toLocaleString("en-US", { month: "long" });
@@ -84,7 +89,7 @@ export default async function DashboardPage() {
           </p>
           <div>
             <h1 className="text-[32px] font-bold leading-[1.05] tracking-[-0.6px] text-foreground">
-              Hey {firstName}.
+              Hey {heroName}.
             </h1>
             <p className="text-[32px] font-bold leading-[1.05] tracking-[-0.6px] text-muted">
               Build. Ship. Connect.

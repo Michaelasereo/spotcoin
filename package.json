@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "deploy": "rm -rf .netlify && prisma generate && netlify deploy --prod --build --skip-functions-cache",
+    "deploy": "rm -rf .netlify && prisma generate && netlify deploy --prod --build --skip-functions-cache --site 8ace60f2-3284-4523-8ee8-29aaa0433051",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
