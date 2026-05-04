@@ -7,4 +7,5 @@ dist
 build
 .netlify
 coverage
+test-results
 *.tsbuildinfo
