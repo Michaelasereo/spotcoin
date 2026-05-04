@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { Resend } from "resend";
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -74,6 +74,37 @@ export const userService = {
     }
 
     return user;
+  },
+
+  async changeOwnPassword(userId: string, currentPassword: string, newPassword: string) {
+    const newTrimmed = newPassword.trim();
+    if (newTrimmed.length < 8) {
+      throw new AppError("Password must be at least 8 characters", "VALIDATION_ERROR", 400);
+    }
+    if (newTrimmed === currentPassword) {
+      throw new AppError("New password must differ from current password", "VALIDATION_ERROR", 400);
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", "USER_NOT_FOUND", 404);
+    }
+
+    const ok = await compare(currentPassword, user.passwordHash);
+    if (!ok) {
+      throw new AppError("Current password is incorrect", "INVALID_CURRENT_PASSWORD", 400);
+    }
+
+    const passwordHash = await hash(newTrimmed, 12);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+      await tx.passwordResetToken.deleteMany({ where: { userId } });
+    });
   },
 
   async searchUsers(workspaceId: string, query: string) {

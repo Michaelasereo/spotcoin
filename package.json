@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "seed:test-users": "node scripts/seed-test-users.js",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },

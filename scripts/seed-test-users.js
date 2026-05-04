@@ -1,3 +1,13 @@
+/**
+ * Seeds test users into Postgres (DATABASE_URL).
+ *
+ * Default: creates "Spotcoin Test Workspace" if missing, then seeds test users there.
+ * `User.workspaceId` is required (FK), so the workspace row always exists before users.
+ * Optional: SEED_WORKSPACE_ID to attach test users to an existing workspace instead.
+ *
+ * Prod manual testing:
+ *   SEED_WORKSPACE_ID='<existing-workspace-cuid>' DATABASE_URL='…' node scripts/seed-test-users.js
+ */
 const fs = require("fs");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("@prisma/client");
@@ -76,19 +86,41 @@ async function main() {
   try {
     const passwordHash = await hash("password123", 12);
 
-    let workspace = await prisma.workspace.findFirst({
-      where: { name: "Spotcoin Test Workspace" },
-    });
+    const seedWorkspaceId = process.env.SEED_WORKSPACE_ID?.trim();
+    let workspace;
 
-    if (!workspace) {
-      workspace = await prisma.workspace.create({
-        data: {
-          name: "Spotcoin Test Workspace",
-          monthlyAllowance: 5,
-          tokenValueNaira: 1000,
-          timezone: "Africa/Lagos",
-        },
+    if (seedWorkspaceId) {
+      workspace = await prisma.workspace.findUnique({
+        where: { id: seedWorkspaceId },
       });
+      if (!workspace) {
+        throw new Error(
+          `SEED_WORKSPACE_ID=${seedWorkspaceId} not found. Run: SELECT id, name FROM "Workspace";`,
+        );
+      }
+      console.error(`[seed-test-users] Using existing workspace: ${workspace.name} (${workspace.id})`);
+    } else {
+      workspace = await prisma.workspace.findFirst({
+        where: { name: "Spotcoin Test Workspace" },
+      });
+
+      if (!workspace) {
+        workspace = await prisma.workspace.create({
+          data: {
+            name: "Spotcoin Test Workspace",
+            monthlyAllowance: 5,
+            tokenValueNaira: 1000,
+            timezone: "Africa/Lagos",
+          },
+        });
+        console.error(
+          `[seed-test-users] Created workspace "${workspace.name}" (${workspace.id}). Omit SEED_WORKSPACE_ID to always use this path.`,
+        );
+      } else {
+        console.error(
+          `[seed-test-users] Reusing existing workspace "${workspace.name}" (${workspace.id}).`,
+        );
+      }
     }
 
     await ensureDefaultPositions(prisma, workspace.id);
